@@ -1,0 +1,268 @@
+const initSqlJs = require('sql.js');
+const fs = require('fs');
+const path = require('path');
+
+const DB_PATH = path.join(__dirname, 'pipeline.db');
+let db = null;
+
+async function initDb() {
+  const SQL = await initSqlJs();
+
+  // Load existing database or create new one
+  if (fs.existsSync(DB_PATH)) {
+    const buffer = fs.readFileSync(DB_PATH);
+    db = new SQL.Database(buffer);
+  } else {
+    db = new SQL.Database();
+  }
+
+  // Enable foreign keys
+  db.run('PRAGMA foreign_keys = ON');
+
+  // Create tables
+  db.run(`
+    CREATE TABLE IF NOT EXISTS deal_stages (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      probability INTEGER NOT NULL DEFAULT 0,
+      sort_order INTEGER NOT NULL DEFAULT 0
+    )
+  `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS list_items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      list_type TEXT NOT NULL,
+      value TEXT NOT NULL,
+      sort_order INTEGER NOT NULL DEFAULT 0
+    )
+  `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS deals (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      deal_name TEXT NOT NULL,
+      contact_name TEXT,
+      partner_id INTEGER REFERENCES list_items(id) ON DELETE SET NULL,
+      platform_id INTEGER REFERENCES list_items(id) ON DELETE SET NULL,
+      product_id INTEGER REFERENCES list_items(id) ON DELETE SET NULL,
+      deal_stage_id INTEGER REFERENCES deal_stages(id) ON DELETE SET NULL,
+      status TEXT DEFAULT 'active',
+      open_date DATE DEFAULT (date('now')),
+      close_month INTEGER,
+      close_year INTEGER,
+      deal_value DECIMAL,
+      notes TEXT,
+      next_step_date DATE,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  seedIfEmpty();
+  saveDb();
+
+  return db;
+}
+
+function saveDb() {
+  const data = db.export();
+  const buffer = Buffer.from(data);
+  fs.writeFileSync(DB_PATH, buffer);
+}
+
+function seedIfEmpty() {
+  const stageResult = db.exec('SELECT COUNT(*) as count FROM deal_stages');
+  const stageCount = stageResult[0]?.values[0][0] || 0;
+  if (stageCount === 0) {
+    const stages = [
+      ['Prospect', 10, 1],
+      ['Qualified', 25, 2],
+      ['Proposal', 50, 3],
+      ['Negotiation', 75, 4],
+      ['Closed Won', 100, 5]
+    ];
+    const stmt = db.prepare('INSERT INTO deal_stages (name, probability, sort_order) VALUES (?, ?, ?)');
+    stages.forEach(([name, prob, order]) => {
+      stmt.run([name, prob, order]);
+    });
+    stmt.free();
+  }
+
+  const listResult = db.exec('SELECT COUNT(*) as count FROM list_items');
+  const listCount = listResult[0]?.values[0][0] || 0;
+  if (listCount === 0) {
+    const items = [
+      ['partner', 'Partner A', 1],
+      ['partner', 'Partner B', 2],
+      ['partner', 'Direct', 3],
+      ['platform', 'Web', 1],
+      ['platform', 'Mobile', 2],
+      ['platform', 'Desktop', 3],
+      ['product', 'Product X', 1],
+      ['product', 'Product Y', 2],
+      ['product', 'Service Z', 3]
+    ];
+    const stmt = db.prepare('INSERT INTO list_items (list_type, value, sort_order) VALUES (?, ?, ?)');
+    items.forEach(([type, value, order]) => {
+      stmt.run([type, value, order]);
+    });
+    stmt.free();
+  }
+}
+
+// Helper to convert sql.js results to array of objects using prepared statements
+function queryAll(sql, params = []) {
+  try {
+    const stmt = db.prepare(sql);
+    if (params.length > 0) {
+      stmt.bind(params);
+    }
+
+    const results = [];
+    while (stmt.step()) {
+      const row = stmt.getAsObject();
+      results.push(row);
+    }
+    stmt.free();
+    return results;
+  } catch (err) {
+    console.error('Query error:', err, sql, params);
+    return [];
+  }
+}
+
+function queryOne(sql, params = []) {
+  const results = queryAll(sql, params);
+  return results[0] || null;
+}
+
+function run(sql, params = []) {
+  try {
+    const stmt = db.prepare(sql);
+    if (params.length > 0) {
+      stmt.bind(params);
+    }
+    stmt.step();
+    stmt.free();
+
+    // Get last insert rowid
+    const lastIdResult = db.exec('SELECT last_insert_rowid() as id');
+    const lastInsertRowid = lastIdResult[0]?.values[0][0] || 0;
+
+    saveDb();
+    return { lastInsertRowid, changes: db.getRowsModified() };
+  } catch (err) {
+    console.error('Run error:', err, sql, params);
+    throw err;
+  }
+}
+
+// Query functions
+const queries = {
+  getAllDeals: (sort = 'id', order = 'asc') => {
+    const sortOrder = order === 'desc' ? 'DESC' : 'ASC';
+
+    // Map sort keys to SQL ORDER BY clauses
+    let orderByClause;
+    switch (sort) {
+      case 'close_date':
+        // Sort by year first, then month
+        orderByClause = `d.close_year ${sortOrder}, d.close_month ${sortOrder}`;
+        break;
+      case 'stage':
+        // Sort by stage probability
+        orderByClause = `ds.probability ${sortOrder}`;
+        break;
+      case 'platform':
+        // Sort alphabetically by platform name
+        orderByClause = `pl.value ${sortOrder}`;
+        break;
+      case 'product':
+        // Sort alphabetically by product name
+        orderByClause = `pr.value ${sortOrder}`;
+        break;
+      case 'partner':
+        // Sort alphabetically by partner name
+        orderByClause = `p.value ${sortOrder}`;
+        break;
+      default:
+        // Standard columns on deals table
+        const validColumns = ['id', 'deal_name', 'contact_name', 'status', 'open_date', 'deal_value', 'next_step_date', 'created_at'];
+        const sortCol = validColumns.includes(sort) ? sort : 'id';
+        orderByClause = `d.${sortCol} ${sortOrder}`;
+    }
+
+    return queryAll(`
+      SELECT
+        d.*,
+        ds.name as deal_stage_name,
+        ds.probability as deal_stage_probability,
+        p.value as partner_name,
+        pl.value as platform_name,
+        pr.value as product_name
+      FROM deals d
+      LEFT JOIN deal_stages ds ON d.deal_stage_id = ds.id
+      LEFT JOIN list_items p ON d.partner_id = p.id
+      LEFT JOIN list_items pl ON d.platform_id = pl.id
+      LEFT JOIN list_items pr ON d.product_id = pr.id
+      ORDER BY ${orderByClause}
+    `);
+  },
+
+  getDealById: (id) => queryOne(`
+    SELECT
+      d.*,
+      ds.name as deal_stage_name,
+      ds.probability as deal_stage_probability,
+      p.value as partner_name,
+      pl.value as platform_name,
+      pr.value as product_name
+    FROM deals d
+    LEFT JOIN deal_stages ds ON d.deal_stage_id = ds.id
+    LEFT JOIN list_items p ON d.partner_id = p.id
+    LEFT JOIN list_items pl ON d.platform_id = pl.id
+    LEFT JOIN list_items pr ON d.product_id = pr.id
+    WHERE d.id = ?
+  `, [id]),
+
+  createDeal: (data) => run(`
+    INSERT INTO deals (deal_name, contact_name, partner_id, platform_id, product_id, deal_stage_id, status, open_date, close_month, close_year, deal_value, notes, next_step_date)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `, [data.deal_name, data.contact_name, data.partner_id, data.platform_id, data.product_id, data.deal_stage_id, data.status, data.open_date, data.close_month, data.close_year, data.deal_value, data.notes, data.next_step_date]),
+
+  updateDeal: (data) => run(`
+    UPDATE deals SET
+      deal_name = ?,
+      contact_name = ?,
+      partner_id = ?,
+      platform_id = ?,
+      product_id = ?,
+      deal_stage_id = ?,
+      status = ?,
+      open_date = ?,
+      close_month = ?,
+      close_year = ?,
+      deal_value = ?,
+      notes = ?,
+      next_step_date = ?,
+      updated_at = CURRENT_TIMESTAMP
+    WHERE id = ?
+  `, [data.deal_name, data.contact_name, data.partner_id, data.platform_id, data.product_id, data.deal_stage_id, data.status, data.open_date, data.close_month, data.close_year, data.deal_value, data.notes, data.next_step_date, data.id]),
+
+  deleteDeal: (id) => run('DELETE FROM deals WHERE id = ?', [id]),
+
+  // Deal Stages
+  getAllStages: () => queryAll('SELECT * FROM deal_stages ORDER BY sort_order'),
+  createStage: (name, probability, sort_order) => run('INSERT INTO deal_stages (name, probability, sort_order) VALUES (?, ?, ?)', [name, probability, sort_order]),
+  updateStage: (name, probability, sort_order, id) => run('UPDATE deal_stages SET name = ?, probability = ?, sort_order = ? WHERE id = ?', [name, probability, sort_order, id]),
+  deleteStage: (id) => run('DELETE FROM deal_stages WHERE id = ?', [id]),
+
+  // List Items
+  getListItems: (type) => queryAll('SELECT * FROM list_items WHERE list_type = ? ORDER BY sort_order', [type]),
+  createListItem: (type, value, sort_order) => run('INSERT INTO list_items (list_type, value, sort_order) VALUES (?, ?, ?)', [type, value, sort_order]),
+  updateListItem: (value, sort_order, id) => run('UPDATE list_items SET value = ?, sort_order = ? WHERE id = ?', [value, sort_order, id]),
+  deleteListItem: (id) => run('DELETE FROM list_items WHERE id = ?', [id])
+};
+
+module.exports = { initDb, queries };
