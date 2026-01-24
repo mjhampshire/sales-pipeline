@@ -26,6 +26,7 @@ export default function PipelineTable({
   onUpdateDeal,
   onDeleteDeal,
   onAddDeal,
+  onRefresh,
   sortConfig,
   onSort
 }) {
@@ -72,9 +73,14 @@ export default function PipelineTable({
         <tfoot>
           <tr>
             <td colSpan={COLUMNS.length}>
-              <button className="add-deal-btn" onClick={onAddDeal}>
-                + Add Deal
-              </button>
+              <div className="table-footer-actions">
+                <button className="add-deal-btn" onClick={onAddDeal}>
+                  + Add Deal
+                </button>
+                <button className="refresh-btn" onClick={onRefresh} title="Refresh data">
+                  ↻ Refresh
+                </button>
+              </div>
             </td>
           </tr>
         </tfoot>

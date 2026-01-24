@@ -59,6 +59,66 @@ async function initDb() {
     )
   `);
 
+  // Monthly snapshot summary
+  db.run(`
+    CREATE TABLE IF NOT EXISTS monthly_snapshots (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      snapshot_month INTEGER NOT NULL,
+      snapshot_year INTEGER NOT NULL,
+      total_weighted_forecast DECIMAL DEFAULT 0,
+      total_deal_count INTEGER DEFAULT 0,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(snapshot_month, snapshot_year)
+    )
+  `);
+
+  // Breakdowns by product/partner
+  db.run(`
+    CREATE TABLE IF NOT EXISTS monthly_snapshot_breakdowns (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      snapshot_id INTEGER REFERENCES monthly_snapshots(id) ON DELETE CASCADE,
+      breakdown_type TEXT NOT NULL,
+      breakdown_name TEXT NOT NULL,
+      deal_count INTEGER DEFAULT 0,
+      forecast_value DECIMAL DEFAULT 0
+    )
+  `);
+
+  // Archived won/lost deals
+  db.run(`
+    CREATE TABLE IF NOT EXISTS archived_deals (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      original_deal_id INTEGER,
+      deal_name TEXT NOT NULL,
+      contact_name TEXT,
+      partner_name TEXT,
+      platform_name TEXT,
+      product_name TEXT,
+      deal_stage_name TEXT,
+      status TEXT NOT NULL,
+      open_date DATE,
+      close_month INTEGER,
+      close_year INTEGER,
+      deal_value DECIMAL,
+      notes TEXT,
+      archived_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      archived_for_month INTEGER NOT NULL,
+      archived_for_year INTEGER NOT NULL
+    )
+  `);
+
+  // Track closed months
+  db.run(`
+    CREATE TABLE IF NOT EXISTS close_month_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      closed_month INTEGER NOT NULL,
+      closed_year INTEGER NOT NULL,
+      closed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      closed_by TEXT DEFAULT 'manual',
+      UNIQUE(closed_month, closed_year)
+    )
+  `);
+
   seedIfEmpty();
   saveDb();
 
@@ -262,7 +322,142 @@ const queries = {
   getListItems: (type) => queryAll('SELECT * FROM list_items WHERE list_type = ? ORDER BY sort_order', [type]),
   createListItem: (type, value, sort_order) => run('INSERT INTO list_items (list_type, value, sort_order) VALUES (?, ?, ?)', [type, value, sort_order]),
   updateListItem: (value, sort_order, id) => run('UPDATE list_items SET value = ?, sort_order = ? WHERE id = ?', [value, sort_order, id]),
-  deleteListItem: (id) => run('DELETE FROM list_items WHERE id = ?', [id])
+  deleteListItem: (id) => run('DELETE FROM list_items WHERE id = ?', [id]),
+
+  // Monthly Snapshots
+  getAllSnapshots: () => queryAll(`
+    SELECT * FROM monthly_snapshots
+    ORDER BY snapshot_year DESC, snapshot_month DESC
+  `),
+
+  getSnapshotBreakdowns: (snapshotId) => queryAll(`
+    SELECT * FROM monthly_snapshot_breakdowns
+    WHERE snapshot_id = ?
+    ORDER BY breakdown_type, forecast_value DESC
+  `, [snapshotId]),
+
+  createSnapshot: (month, year, totalForecast, dealCount) => run(`
+    INSERT INTO monthly_snapshots (snapshot_month, snapshot_year, total_weighted_forecast, total_deal_count)
+    VALUES (?, ?, ?, ?)
+  `, [month, year, totalForecast, dealCount]),
+
+  getSnapshotByMonth: (month, year) => queryOne(`
+    SELECT * FROM monthly_snapshots
+    WHERE snapshot_month = ? AND snapshot_year = ?
+  `, [month, year]),
+
+  updateSnapshot: (id, totalForecast, dealCount) => run(`
+    UPDATE monthly_snapshots
+    SET total_weighted_forecast = ?, total_deal_count = ?
+    WHERE id = ?
+  `, [totalForecast, dealCount, id]),
+
+  deleteSnapshotBreakdowns: (snapshotId) => run(`
+    DELETE FROM monthly_snapshot_breakdowns WHERE snapshot_id = ?
+  `, [snapshotId]),
+
+  createSnapshotBreakdown: (snapshotId, type, name, dealCount, forecastValue) => run(`
+    INSERT INTO monthly_snapshot_breakdowns (snapshot_id, breakdown_type, breakdown_name, deal_count, forecast_value)
+    VALUES (?, ?, ?, ?, ?)
+  `, [snapshotId, type, name, dealCount, forecastValue]),
+
+  // Archived Deals
+  getArchivedDeals: (status) => queryAll(`
+    SELECT * FROM archived_deals
+    WHERE status = ?
+    ORDER BY archived_for_year DESC, archived_for_month DESC, archived_at DESC
+  `, [status]),
+
+  getArchivedDealById: (id) => queryOne(`
+    SELECT * FROM archived_deals WHERE id = ?
+  `, [id]),
+
+  updateArchivedDeal: (data) => run(`
+    UPDATE archived_deals SET
+      deal_name = ?,
+      contact_name = ?,
+      partner_name = ?,
+      platform_name = ?,
+      product_name = ?,
+      deal_stage_name = ?,
+      status = ?,
+      open_date = ?,
+      close_month = ?,
+      close_year = ?,
+      deal_value = ?,
+      notes = ?
+    WHERE id = ?
+  `, [data.deal_name, data.contact_name, data.partner_name, data.platform_name,
+      data.product_name, data.deal_stage_name, data.status, data.open_date,
+      data.close_month, data.close_year, data.deal_value, data.notes, data.id]),
+
+  deleteArchivedDeal: (id) => run('DELETE FROM archived_deals WHERE id = ?', [id]),
+
+  createArchivedDeal: (data) => run(`
+    INSERT INTO archived_deals (
+      original_deal_id, deal_name, contact_name, partner_name, platform_name,
+      product_name, deal_stage_name, status, open_date, close_month, close_year,
+      deal_value, notes, archived_for_month, archived_for_year
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `, [
+    data.original_deal_id, data.deal_name, data.contact_name, data.partner_name,
+    data.platform_name, data.product_name, data.deal_stage_name, data.status,
+    data.open_date, data.close_month, data.close_year, data.deal_value,
+    data.notes, data.archived_for_month, data.archived_for_year
+  ]),
+
+  // Close Month Log
+  isMonthClosed: (month, year) => {
+    const result = queryOne(`
+      SELECT id FROM close_month_log
+      WHERE closed_month = ? AND closed_year = ?
+    `, [month, year]);
+    return result !== null;
+  },
+
+  logClosedMonth: (month, year, closedBy = 'manual') => run(`
+    INSERT INTO close_month_log (closed_month, closed_year, closed_by)
+    VALUES (?, ?, ?)
+  `, [month, year, closedBy]),
+
+  getClosedMonths: () => queryAll(`
+    SELECT * FROM close_month_log
+    ORDER BY closed_year DESC, closed_month DESC
+  `),
+
+  // Get active deals with status won or lost
+  getWonLostDeals: () => queryAll(`
+    SELECT
+      d.*,
+      ds.name as deal_stage_name,
+      ds.probability as deal_stage_probability,
+      p.value as partner_name,
+      pl.value as platform_name,
+      pr.value as product_name
+    FROM deals d
+    LEFT JOIN deal_stages ds ON d.deal_stage_id = ds.id
+    LEFT JOIN list_items p ON d.partner_id = p.id
+    LEFT JOIN list_items pl ON d.platform_id = pl.id
+    LEFT JOIN list_items pr ON d.product_id = pr.id
+    WHERE d.status IN ('won', 'lost')
+  `),
+
+  // Get active deals for forecast calculation (excluding won/lost)
+  getActiveDealsForForecast: () => queryAll(`
+    SELECT
+      d.*,
+      ds.name as deal_stage_name,
+      ds.probability as deal_stage_probability,
+      p.value as partner_name,
+      pl.value as platform_name,
+      pr.value as product_name
+    FROM deals d
+    LEFT JOIN deal_stages ds ON d.deal_stage_id = ds.id
+    LEFT JOIN list_items p ON d.partner_id = p.id
+    LEFT JOIN list_items pl ON d.platform_id = pl.id
+    LEFT JOIN list_items pr ON d.product_id = pr.id
+    WHERE d.status NOT IN ('won', 'lost')
+  `)
 };
 
 module.exports = { initDb, queries };

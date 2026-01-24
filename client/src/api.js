@@ -94,3 +94,68 @@ export async function deleteListItem(type, id) {
   const res = await fetch(`${API_BASE}/lists/${type}/${id}`, { method: 'DELETE' });
   return handleResponse(res);
 }
+
+// Monthly Snapshots
+export async function getSnapshots() {
+  const res = await fetch(`${API_BASE}/snapshots`);
+  return handleResponse(res);
+}
+
+// Archived Deals
+export async function getArchivedWonDeals() {
+  const res = await fetch(`${API_BASE}/archived/won`);
+  return handleResponse(res);
+}
+
+export async function getArchivedLostDeals() {
+  const res = await fetch(`${API_BASE}/archived/lost`);
+  return handleResponse(res);
+}
+
+export async function createArchivedDeal(deal) {
+  const res = await fetch(`${API_BASE}/archived`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(deal)
+  });
+  return handleResponse(res);
+}
+
+export async function updateArchivedDeal(id, updates) {
+  const res = await fetch(`${API_BASE}/archived/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(updates)
+  });
+  return handleResponse(res);
+}
+
+export async function deleteArchivedDeal(id) {
+  const res = await fetch(`${API_BASE}/archived/${id}`, { method: 'DELETE' });
+  return handleResponse(res);
+}
+
+export async function restoreArchivedDeal(id) {
+  const res = await fetch(`${API_BASE}/archived/${id}/restore`, { method: 'POST' });
+  return handleResponse(res);
+}
+
+// Close Month
+export async function getCloseMonthStatus() {
+  const res = await fetch(`${API_BASE}/close-month/status`);
+  return handleResponse(res);
+}
+
+export async function closeMonth(closedBy = 'manual') {
+  const res = await fetch(`${API_BASE}/close-month`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ closedBy })
+  });
+  return handleResponse(res);
+}
+
+export async function updatePriorMonth() {
+  const res = await fetch(`${API_BASE}/update-prior-month`, { method: 'POST' });
+  return handleResponse(res);
+}

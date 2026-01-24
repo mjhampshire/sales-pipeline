@@ -17,39 +17,65 @@ const DEAL_FIELDS = [
 ];
 
 function parseCSV(text) {
-  const lines = text.split(/\r?\n/).filter(line => line.trim());
-  if (lines.length === 0) return { headers: [], rows: [] };
+  // Remove BOM if present (common in Excel-exported CSVs)
+  const cleanText = text.replace(/^\uFEFF/, '');
+  if (!cleanText.trim()) return { headers: [], rows: [] };
 
-  // Parse CSV properly handling quoted fields
-  const parseLine = (line) => {
-    const result = [];
-    let current = '';
-    let inQuotes = false;
+  // Parse CSV handling quoted fields that may contain newlines
+  const rows = [];
+  let currentRow = [];
+  let currentField = '';
+  let inQuotes = false;
 
-    for (let i = 0; i < line.length; i++) {
-      const char = line[i];
-      if (char === '"') {
-        if (inQuotes && line[i + 1] === '"') {
-          current += '"';
-          i++;
-        } else {
-          inQuotes = !inQuotes;
-        }
-      } else if (char === ',' && !inQuotes) {
-        result.push(current.trim());
-        current = '';
+  for (let i = 0; i < cleanText.length; i++) {
+    const char = cleanText[i];
+    const nextChar = cleanText[i + 1];
+
+    if (char === '"') {
+      if (inQuotes && nextChar === '"') {
+        // Escaped quote inside quoted field
+        currentField += '"';
+        i++;
       } else {
-        current += char;
+        // Toggle quote mode
+        inQuotes = !inQuotes;
       }
+    } else if (char === ',' && !inQuotes) {
+      // End of field
+      currentRow.push(currentField.trim());
+      currentField = '';
+    } else if ((char === '\r' || char === '\n') && !inQuotes) {
+      // End of row (handle \r\n, \r, or \n)
+      if (char === '\r' && nextChar === '\n') {
+        i++; // Skip the \n in \r\n
+      }
+      // Push last field and complete the row
+      currentRow.push(currentField.trim());
+      if (currentRow.some(field => field !== '')) {
+        rows.push(currentRow);
+      }
+      currentRow = [];
+      currentField = '';
+    } else {
+      // Regular character (including newlines inside quotes)
+      currentField += char;
     }
-    result.push(current.trim());
-    return result;
-  };
+  }
 
-  const headers = parseLine(lines[0]);
-  const rows = lines.slice(1).map(parseLine);
+  // Handle last field/row if file doesn't end with newline
+  if (currentField || currentRow.length > 0) {
+    currentRow.push(currentField.trim());
+    if (currentRow.some(field => field !== '')) {
+      rows.push(currentRow);
+    }
+  }
 
-  return { headers, rows };
+  if (rows.length === 0) return { headers: [], rows: [] };
+
+  const headers = rows[0];
+  const dataRows = rows.slice(1);
+
+  return { headers, rows: dataRows };
 }
 
 // Parse Australian date format (DD/MM/YYYY) and extract month/year
@@ -98,6 +124,28 @@ function parseFullDate(dateStr) {
 
 const VALID_STATUSES = ['won', 'active', 'keep_warm', 'lost'];
 
+// Check if a close date should be auto-archived (before preceding month)
+function shouldAutoArchive(closeMonth, closeYear) {
+  if (!closeMonth || !closeYear) return false;
+
+  const now = new Date();
+  const currentMonth = now.getMonth() + 1;
+  const currentYear = now.getFullYear();
+
+  // Calculate preceding month (month before last)
+  let precedingMonth = currentMonth - 2;
+  let precedingYear = currentYear;
+  if (precedingMonth <= 0) {
+    precedingMonth += 12;
+    precedingYear--;
+  }
+
+  // If close date is before or equal to preceding month, auto-archive
+  if (closeYear < precedingYear) return true;
+  if (closeYear === precedingYear && closeMonth <= precedingMonth) return true;
+  return false;
+}
+
 export default function ImportModal({
   isOpen,
   onClose,
@@ -109,6 +157,7 @@ export default function ImportModal({
   onCreateStage,
   onCreateListItem,
   onCreateDeal,
+  onCreateArchivedDeal,
   onReloadData
 }) {
   const [step, setStep] = useState('upload'); // upload, map, importing, done
@@ -238,59 +287,67 @@ export default function ImportModal({
           } else if (fieldDef?.listType === 'partner') {
             const normalizedName = value.trim().toLowerCase();
             let partnerId = partnerMap.get(normalizedName);
-            if (!partnerId) {
+            if (partnerId === undefined) {
               // Create new partner
               try {
                 const newItem = await onCreateListItem('partner', { value: value.trim() });
-                partnerId = newItem.id;
-                partnerMap.set(normalizedName, partnerId);
+                if (newItem && newItem.id != null) {
+                  partnerId = newItem.id;
+                  partnerMap.set(normalizedName, partnerId);
+                }
               } catch (err) {
                 console.error('Failed to create partner:', err);
               }
             }
-            if (partnerId) dealData.partner_id = partnerId;
+            if (partnerId != null) dealData.partner_id = partnerId;
           } else if (fieldDef?.listType === 'platform') {
             const normalizedName = value.trim().toLowerCase();
             let platformId = platformMap.get(normalizedName);
-            if (!platformId) {
+            if (platformId === undefined) {
               // Create new platform
               try {
                 const newItem = await onCreateListItem('platform', { value: value.trim() });
-                platformId = newItem.id;
-                platformMap.set(normalizedName, platformId);
+                if (newItem && newItem.id != null) {
+                  platformId = newItem.id;
+                  platformMap.set(normalizedName, platformId);
+                }
               } catch (err) {
                 console.error('Failed to create platform:', err);
               }
             }
-            if (platformId) dealData.platform_id = platformId;
+            if (platformId != null) dealData.platform_id = platformId;
           } else if (fieldDef?.listType === 'product') {
             const normalizedName = value.trim().toLowerCase();
             let productId = productMap.get(normalizedName);
-            if (!productId) {
+            if (productId === undefined) {
               // Create new product
               try {
                 const newItem = await onCreateListItem('product', { value: value.trim() });
-                productId = newItem.id;
-                productMap.set(normalizedName, productId);
+                if (newItem && newItem.id != null) {
+                  productId = newItem.id;
+                  productMap.set(normalizedName, productId);
+                }
               } catch (err) {
                 console.error('Failed to create product:', err);
               }
             }
-            if (productId) dealData.product_id = productId;
+            if (productId != null) dealData.product_id = productId;
           } else if (fieldDef?.listType === 'stage') {
             const normalizedName = value.trim().toLowerCase();
             let stageId = stageMap.get(normalizedName);
-            if (!stageId) {
+            if (stageId === undefined) {
               // Create new stage with default probability
               try {
                 const newStage = await onCreateStage({ name: value.trim(), probability: 50 });
-                stageId = newStage.id;
-                stageMap.set(normalizedName, stageId);
+                if (newStage && newStage.id != null) {
+                  stageId = newStage.id;
+                  stageMap.set(normalizedName, stageId);
+                }
               } catch (err) {
                 console.error('Failed to create stage:', err);
               }
             }
-            if (stageId) dealData.deal_stage_id = stageId;
+            if (stageId != null) dealData.deal_stage_id = stageId;
           } else {
             dealData[fieldKey] = value;
           }
@@ -316,7 +373,51 @@ export default function ImportModal({
           continue;
         }
 
-        await onCreateDeal(dealData);
+        // Check if this is an old won/lost deal that should be auto-archived
+        const isWonOrLost = dealData.status === 'won' || dealData.status === 'lost';
+        const shouldArchive = isWonOrLost && shouldAutoArchive(dealData.close_month, dealData.close_year);
+
+        if (shouldArchive && onCreateArchivedDeal) {
+          // Calculate the archive month (prior month from current)
+          const now = new Date();
+          const currentMonth = now.getMonth() + 1;
+          const currentYear = now.getFullYear();
+          let archivedForMonth = currentMonth - 1;
+          let archivedForYear = currentYear;
+          if (archivedForMonth === 0) {
+            archivedForMonth = 12;
+            archivedForYear = currentYear - 1;
+          }
+
+          // Get names for the archived deal
+          const partnerName = dealData.partner_id ?
+            partners.find(p => p.id === dealData.partner_id)?.value || null : null;
+          const platformName = dealData.platform_id ?
+            platforms.find(p => p.id === dealData.platform_id)?.value || null : null;
+          const productName = dealData.product_id ?
+            products.find(p => p.id === dealData.product_id)?.value || null : null;
+          const stageName = dealData.deal_stage_id ?
+            stages.find(s => s.id === dealData.deal_stage_id)?.name || null : null;
+
+          await onCreateArchivedDeal({
+            deal_name: dealData.deal_name,
+            contact_name: dealData.contact_name || null,
+            partner_name: partnerName,
+            platform_name: platformName,
+            product_name: productName,
+            deal_stage_name: stageName,
+            status: dealData.status,
+            open_date: dealData.open_date || null,
+            close_month: dealData.close_month || null,
+            close_year: dealData.close_year || null,
+            deal_value: dealData.deal_value || null,
+            notes: dealData.notes || null,
+            archived_for_month: archivedForMonth,
+            archived_for_year: archivedForYear
+          });
+        } else {
+          await onCreateDeal(dealData);
+        }
         importedDealNames.add(normalizedDealName);
         existingDealNames.add(normalizedDealName);
         successCount++;

@@ -1,10 +1,14 @@
 import { useState, useEffect } from 'react';
 import PipelineTable from './PipelineTable';
 import ForecastSummary from './ForecastSummary';
+import MonthlySnapshot from './MonthlySnapshot';
+import WonDeals from './WonDeals';
+import LostDeals from './LostDeals';
 import SettingsModal from './SettingsModal';
 import ConfirmModal from './ConfirmModal';
 import ImportModal from './ImportModal';
 import WonConfirmModal from './WonConfirmModal';
+import CloseMonthModal from './CloseMonthModal';
 import * as api from '../api';
 
 export default function App() {
@@ -20,9 +24,15 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [deleteConfirm, setDeleteConfirm] = useState({ open: false, dealId: null, dealName: '' });
   const [wonConfirm, setWonConfirm] = useState({ open: false, deal: null });
+  const [closeMonthStatus, setCloseMonthStatus] = useState(null);
+  const [closeMonthModalOpen, setCloseMonthModalOpen] = useState(false);
 
   useEffect(() => {
     loadData();
+    loadCloseMonthStatus();
+    // Poll close month status every minute
+    const interval = setInterval(loadCloseMonthStatus, 60000);
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -30,6 +40,13 @@ export default function App() {
       loadDeals();
     }
   }, [sortConfig]);
+
+  // Reload deals when switching to pipeline view
+  useEffect(() => {
+    if (!loading && currentView === 'pipeline') {
+      loadDeals();
+    }
+  }, [currentView]);
 
   const loadData = async () => {
     try {
@@ -78,6 +95,35 @@ export default function App() {
     }
   };
 
+  const loadCloseMonthStatus = async () => {
+    try {
+      const status = await api.getCloseMonthStatus();
+      setCloseMonthStatus(status);
+    } catch (err) {
+      console.error('Failed to load close month status:', err);
+    }
+  };
+
+  const handleCloseMonthClick = () => {
+    setCloseMonthModalOpen(true);
+  };
+
+  const handleCloseMonthConfirm = async () => {
+    setCloseMonthModalOpen(false);
+    try {
+      await api.closeMonth('manual');
+      await loadCloseMonthStatus();
+      await loadDeals();
+    } catch (err) {
+      console.error('Failed to close month:', err);
+      alert(err.message || 'Failed to close month');
+    }
+  };
+
+  const handleCloseMonthCancel = () => {
+    setCloseMonthModalOpen(false);
+  };
+
   const handleSort = (key) => {
     setSortConfig(prev => ({
       key,
@@ -117,10 +163,18 @@ export default function App() {
     }
   };
 
-  const handleWonConfirm = async (dealId, dealValue) => {
+  const handleWonConfirm = async (dealId, dealValue, closeMonth, closeYear) => {
     setWonConfirm({ open: false, deal: null });
     try {
-      const updated = await api.updateDeal(dealId, { status: 'won', deal_value: dealValue });
+      // Find a 100% stage to set for won deals
+      const wonStage = stages.find(s => s.probability === 100);
+      const updated = await api.updateDeal(dealId, {
+        status: 'won',
+        deal_value: dealValue,
+        close_month: closeMonth,
+        close_year: closeYear,
+        ...(wonStage && { deal_stage_id: wonStage.id })
+      });
       setDeals(prev => prev.map(d => d.id === dealId ? updated : d));
     } catch (err) {
       console.error('Failed to update deal:', err);
@@ -156,8 +210,10 @@ export default function App() {
     try {
       const newStage = await api.createStage(stage);
       setStages(prev => [...prev, newStage]);
+      return newStage;
     } catch (err) {
       console.error('Failed to create stage:', err);
+      throw err;
     }
   };
 
@@ -188,8 +244,10 @@ export default function App() {
       if (type === 'partner') setPartners(prev => [...prev, newItem]);
       if (type === 'platform') setPlatforms(prev => [...prev, newItem]);
       if (type === 'product') setProducts(prev => [...prev, newItem]);
+      return newItem;
     } catch (err) {
       console.error('Failed to create list item:', err);
+      throw err;
     }
   };
 
@@ -245,7 +303,33 @@ export default function App() {
             >
               Forecast Summary
             </button>
+            <button
+              className={`nav-tab ${currentView === 'snapshot' ? 'active' : ''}`}
+              onClick={() => setCurrentView('snapshot')}
+            >
+              Monthly Snapshot
+            </button>
+            <button
+              className={`nav-tab ${currentView === 'won' ? 'active' : ''}`}
+              onClick={() => setCurrentView('won')}
+            >
+              Won Deals
+            </button>
+            <button
+              className={`nav-tab ${currentView === 'lost' ? 'active' : ''}`}
+              onClick={() => setCurrentView('lost')}
+            >
+              Lost Deals
+            </button>
           </nav>
+          {closeMonthStatus && (
+            <button
+              className={`close-month-btn ${closeMonthStatus.shouldFlash && !closeMonthStatus.priorMonthClosed ? 'flashing' : ''}`}
+              onClick={handleCloseMonthClick}
+            >
+              Close Prior Month
+            </button>
+          )}
           <button className="import-btn" onClick={() => setImportOpen(true)}>
             Import CSV
           </button>
@@ -255,7 +339,7 @@ export default function App() {
         </div>
       </header>
       <main>
-        {currentView === 'pipeline' ? (
+        {currentView === 'pipeline' && (
           <PipelineTable
             deals={deals}
             stages={stages}
@@ -265,12 +349,17 @@ export default function App() {
             onUpdateDeal={handleUpdateDeal}
             onDeleteDeal={handleRequestDeleteDeal}
             onAddDeal={handleAddDeal}
+            onRefresh={loadDeals}
             sortConfig={sortConfig}
             onSort={handleSort}
           />
-        ) : (
+        )}
+        {currentView === 'forecast' && (
           <ForecastSummary deals={deals} stages={stages} />
         )}
+        {currentView === 'snapshot' && <MonthlySnapshot />}
+        {currentView === 'won' && <WonDeals />}
+        {currentView === 'lost' && <LostDeals />}
       </main>
       <SettingsModal
         isOpen={settingsOpen}
@@ -304,6 +393,7 @@ export default function App() {
         onCreateStage={handleCreateStage}
         onCreateListItem={handleCreateListItem}
         onCreateDeal={api.createDeal}
+        onCreateArchivedDeal={api.createArchivedDeal}
         onReloadData={loadData}
       />
       <WonConfirmModal
@@ -311,6 +401,14 @@ export default function App() {
         deal={wonConfirm.deal}
         onConfirm={handleWonConfirm}
         onCancel={handleWonCancel}
+      />
+      <CloseMonthModal
+        isOpen={closeMonthModalOpen}
+        priorMonth={closeMonthStatus?.priorMonth}
+        priorYear={closeMonthStatus?.priorYear}
+        priorMonthClosed={closeMonthStatus?.priorMonthClosed}
+        onConfirm={handleCloseMonthConfirm}
+        onCancel={handleCloseMonthCancel}
       />
     </div>
   );
