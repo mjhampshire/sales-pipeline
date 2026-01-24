@@ -107,6 +107,23 @@ async function initDb() {
     )
   `);
 
+  // Leads from website
+  db.run(`
+    CREATE TABLE IF NOT EXISTS leads (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      firstname TEXT,
+      lastname TEXT,
+      email TEXT,
+      mobile TEXT,
+      company TEXT,
+      message TEXT,
+      received_date DATE DEFAULT (date('now')),
+      status TEXT DEFAULT 'new',
+      converted_deal_id INTEGER REFERENCES deals(id) ON DELETE SET NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
   // Track closed months
   db.run(`
     CREATE TABLE IF NOT EXISTS close_month_log (
@@ -441,6 +458,27 @@ const queries = {
     LEFT JOIN list_items pr ON d.product_id = pr.id
     WHERE d.status IN ('won', 'lost')
   `),
+
+  // Leads
+  getAllLeads: () => queryAll(`
+    SELECT * FROM leads ORDER BY
+      CASE WHEN status = 'new' THEN 0 ELSE 1 END,
+      received_date DESC, created_at DESC
+  `),
+
+  getLeadById: (id) => queryOne('SELECT * FROM leads WHERE id = ?', [id]),
+
+  createLead: (data) => run(`
+    INSERT INTO leads (firstname, lastname, email, mobile, company, message, received_date)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `, [data.firstname, data.lastname, data.email, data.mobile, data.company, data.message,
+      data.received_date || new Date().toISOString().split('T')[0]]),
+
+  deleteLead: (id) => run('DELETE FROM leads WHERE id = ?', [id]),
+
+  updateLeadStatus: (id, status, convertedDealId = null) => run(`
+    UPDATE leads SET status = ?, converted_deal_id = ? WHERE id = ?
+  `, [status, convertedDealId, id]),
 
   // Get active deals for forecast calculation (excluding won/lost)
   getActiveDealsForForecast: () => queryAll(`

@@ -159,3 +159,37 @@ export async function updatePriorMonth() {
   const res = await fetch(`${API_BASE}/update-prior-month`, { method: 'POST' });
   return handleResponse(res);
 }
+
+// Leads
+export async function getLeads() {
+  const res = await fetch(`${API_BASE}/leads`);
+  return handleResponse(res);
+}
+
+export async function createLead(lead) {
+  const res = await fetch(`${API_BASE}/leads`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(lead)
+  });
+  return handleResponse(res);
+}
+
+export async function deleteLead(id) {
+  const res = await fetch(`${API_BASE}/leads/${id}`, { method: 'DELETE' });
+  return handleResponse(res);
+}
+
+export async function checkDealNameExists(name) {
+  const res = await fetch(`${API_BASE}/deals/check-name?name=${encodeURIComponent(name)}`);
+  return handleResponse(res);
+}
+
+export async function convertLeadToDeal(id, dealName = null) {
+  const res = await fetch(`${API_BASE}/leads/${id}/convert`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ deal_name: dealName })
+  });
+  return handleResponse(res);
+}

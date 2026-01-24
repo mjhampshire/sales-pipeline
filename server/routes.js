@@ -584,4 +584,110 @@ router.post('/close-month', (req, res) => {
   }
 });
 
+// ============ LEADS ============
+
+// Get all leads
+router.get('/leads', (req, res) => {
+  try {
+    const leads = queries.getAllLeads();
+    res.json(leads);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Create lead (webhook endpoint for website form)
+router.post('/leads', (req, res) => {
+  try {
+    const data = {
+      firstname: req.body.firstname || req.body.firstName || null,
+      lastname: req.body.lastname || req.body.lastName || null,
+      email: req.body.email || null,
+      mobile: req.body.mobile || req.body.phone || null,
+      company: req.body.company || null,
+      message: req.body.message || null,
+      received_date: req.body.received_date || new Date().toISOString().split('T')[0]
+    };
+
+    const result = queries.createLead(data);
+    const lead = queries.getLeadById(result.lastInsertRowid);
+    res.status(201).json(lead);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Delete lead
+router.delete('/leads/:id', (req, res) => {
+  try {
+    const existing = queries.getLeadById(req.params.id);
+    if (!existing) {
+      return res.status(404).json({ error: 'Lead not found' });
+    }
+    queries.deleteLead(req.params.id);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Check if deal name exists
+router.get('/deals/check-name', (req, res) => {
+  try {
+    const { name } = req.query;
+    if (!name) {
+      return res.status(400).json({ error: 'Name parameter required' });
+    }
+    const deals = queries.getAllDeals();
+    const exists = deals.some(d => d.deal_name.toLowerCase().trim() === name.toLowerCase().trim());
+    res.json({ exists });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Convert lead to deal
+router.post('/leads/:id/convert', (req, res) => {
+  try {
+    const lead = queries.getLeadById(req.params.id);
+    if (!lead) {
+      return res.status(404).json({ error: 'Lead not found' });
+    }
+
+    if (lead.status === 'converted') {
+      return res.status(400).json({ error: 'Lead already converted' });
+    }
+
+    // Use provided deal_name or default to company
+    const dealName = req.body.deal_name || lead.company || 'New Deal';
+    const contactName = [lead.firstname, lead.lastname].filter(Boolean).join(' ') || null;
+
+    const dealData = {
+      deal_name: dealName,
+      contact_name: contactName,
+      partner_id: null,
+      platform_id: null,
+      product_id: null,
+      deal_stage_id: null,
+      status: 'active',
+      open_date: lead.received_date,
+      close_month: null,
+      close_year: null,
+      deal_value: null,
+      notes: lead.message || null,
+      next_step_date: null
+    };
+
+    const result = queries.createDeal(dealData);
+    const deal = queries.getDealById(result.lastInsertRowid);
+
+    // Update lead status
+    queries.updateLeadStatus(req.params.id, 'converted', deal.id);
+
+    res.json({ lead: queries.getLeadById(req.params.id), deal });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

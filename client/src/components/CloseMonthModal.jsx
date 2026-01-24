@@ -12,7 +12,7 @@ export default function CloseMonthModal({ isOpen, priorMonth, priorYear, priorMo
     <div className="modal-overlay" onClick={onCancel}>
       <div className="modal-content close-month-modal" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>{priorMonthClosed ? 'Re-close' : 'Close'} {monthName} {priorYear}</h2>
+          <h2>{priorMonthClosed ? 'Resave' : 'Save'} {monthName} {priorYear}</h2>
           <button className="modal-close" onClick={onCancel}>&times;</button>
         </div>
 
@@ -22,17 +22,17 @@ export default function CloseMonthModal({ isOpen, priorMonth, priorYear, priorMo
           </p>
 
           <p className="close-month-info">
-            {priorMonthClosed ? 'Re-closing' : 'Closing'} this month will:
+            {priorMonthClosed ? 'Resaving' : 'Saving'} this month will:
           </p>
           <ul className="close-month-list">
             <li>{priorMonthClosed ? 'Update the snapshot' : 'Create a snapshot'} of the current weighted pipeline forecast</li>
             <li>Archive all won and lost deals</li>
-            {!priorMonthClosed && <li>Record {monthName} {priorYear} as closed</li>}
+            {!priorMonthClosed && <li>Record {monthName} {priorYear} as saved</li>}
           </ul>
 
           {priorMonthClosed && (
             <p className="close-month-reclose-note">
-              Note: This month was previously closed. The snapshot will be updated with current data.
+              Note: This month was previously saved. The snapshot will be updated with current data.
             </p>
           )}
         </div>
@@ -42,7 +42,7 @@ export default function CloseMonthModal({ isOpen, priorMonth, priorYear, priorMo
             Cancel
           </button>
           <button className="btn-primary btn-close-month" onClick={onConfirm}>
-            {priorMonthClosed ? 'Re-close' : 'Close'} {monthName}
+            {priorMonthClosed ? 'Resave' : 'Save'} {monthName}
           </button>
         </div>
       </div>

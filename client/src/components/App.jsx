@@ -4,6 +4,7 @@ import ForecastSummary from './ForecastSummary';
 import MonthlySnapshot from './MonthlySnapshot';
 import WonDeals from './WonDeals';
 import LostDeals from './LostDeals';
+import Leads from './Leads';
 import SettingsModal from './SettingsModal';
 import ConfirmModal from './ConfirmModal';
 import ImportModal from './ImportModal';
@@ -321,13 +322,19 @@ export default function App() {
             >
               Lost Deals
             </button>
+            <button
+              className={`nav-tab ${currentView === 'leads' ? 'active' : ''}`}
+              onClick={() => setCurrentView('leads')}
+            >
+              Leads
+            </button>
           </nav>
           {closeMonthStatus && (
             <button
               className={`close-month-btn ${closeMonthStatus.shouldFlash && !closeMonthStatus.priorMonthClosed ? 'flashing' : ''}`}
               onClick={handleCloseMonthClick}
             >
-              Close Prior Month
+              {closeMonthStatus.priorMonthClosed ? 'Resave Prior Month' : 'Save Prior Month'}
             </button>
           )}
           <button className="import-btn" onClick={() => setImportOpen(true)}>
@@ -360,6 +367,7 @@ export default function App() {
         {currentView === 'snapshot' && <MonthlySnapshot />}
         {currentView === 'won' && <WonDeals />}
         {currentView === 'lost' && <LostDeals />}
+        {currentView === 'leads' && <Leads onLeadConverted={loadDeals} />}
       </main>
       <SettingsModal
         isOpen={settingsOpen}
