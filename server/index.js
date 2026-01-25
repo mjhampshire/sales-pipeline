@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 const { initDb, queries } = require('./db');
 
 const app = express();
@@ -7,6 +8,11 @@ const PORT = process.env.PORT || 3001;
 
 app.use(cors());
 app.use(express.json());
+
+// Serve static files from the built client in production
+if (process.env.NODE_ENV === 'production') {
+  app.use(express.static(path.join(__dirname, '../client/dist')));
+}
 
 // Auto-close month check function
 function checkAndAutoCloseMonth() {
@@ -138,6 +144,13 @@ initDb().then(() => {
   // Load routes after DB is initialized
   const routes = require('./routes');
   app.use('/api', routes);
+
+  // Serve index.html for all other routes in production (client-side routing)
+  if (process.env.NODE_ENV === 'production') {
+    app.get('*', (req, res) => {
+      res.sendFile(path.join(__dirname, '../client/dist/index.html'));
+    });
+  }
 
   app.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
