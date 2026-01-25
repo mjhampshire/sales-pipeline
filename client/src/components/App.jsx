@@ -333,7 +333,10 @@ export default function App() {
   return (
     <div className="app">
       <header className="app-header">
-        <h1>The Wishlist Sales Pipeline</h1>
+        <div className="header-title">
+          <img src="/logo-icon.png" alt="The Wishlist" className="header-logo" />
+          <h1>The Wishlist Sales Pipeline</h1>
+        </div>
         <div className="header-right">
           <nav className="nav-tabs">
             <button
