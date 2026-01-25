@@ -22,6 +22,7 @@ router.post('/deals', (req, res) => {
     const data = {
       deal_name: req.body.deal_name || 'New Deal',
       contact_name: req.body.contact_name || null,
+      source_id: req.body.source_id || null,
       partner_id: req.body.partner_id || null,
       platform_id: req.body.platform_id || null,
       product_id: req.body.product_id || null,
@@ -54,6 +55,7 @@ router.put('/deals/:id', (req, res) => {
       id: parseInt(req.params.id),
       deal_name: req.body.deal_name ?? existing.deal_name,
       contact_name: req.body.contact_name ?? existing.contact_name,
+      source_id: req.body.source_id ?? existing.source_id,
       partner_id: req.body.partner_id ?? existing.partner_id,
       platform_id: req.body.platform_id ?? existing.platform_id,
       product_id: req.body.product_id ?? existing.product_id,
@@ -139,7 +141,7 @@ router.delete('/stages/:id', (req, res) => {
 // Get list items by type
 router.get('/lists/:type', (req, res) => {
   try {
-    const validTypes = ['partner', 'platform', 'product'];
+    const validTypes = ['partner', 'platform', 'product', 'source'];
     if (!validTypes.includes(req.params.type)) {
       return res.status(400).json({ error: 'Invalid list type' });
     }
@@ -153,7 +155,7 @@ router.get('/lists/:type', (req, res) => {
 // Create list item
 router.post('/lists/:type', (req, res) => {
   try {
-    const validTypes = ['partner', 'platform', 'product'];
+    const validTypes = ['partner', 'platform', 'product', 'source'];
     if (!validTypes.includes(req.params.type)) {
       return res.status(400).json({ error: 'Invalid list type' });
     }
@@ -265,6 +267,7 @@ router.put('/archived/:id', (req, res) => {
       id: parseInt(req.params.id),
       deal_name: req.body.deal_name ?? existing.deal_name,
       contact_name: req.body.contact_name ?? existing.contact_name,
+      source_name: req.body.source_name ?? existing.source_name,
       partner_name: req.body.partner_name ?? existing.partner_name,
       platform_name: req.body.platform_name ?? existing.platform_name,
       product_name: req.body.product_name ?? existing.product_name,
@@ -546,6 +549,7 @@ router.post('/close-month', (req, res) => {
         original_deal_id: deal.id,
         deal_name: deal.deal_name,
         contact_name: deal.contact_name,
+        source_name: deal.source_name,
         partner_name: deal.partner_name,
         platform_name: deal.platform_name,
         product_name: deal.product_name,
@@ -596,7 +600,7 @@ router.get('/leads', (req, res) => {
   }
 });
 
-// Create lead (webhook endpoint for website form)
+// Create lead (webhook endpoint for website form or manual entry)
 router.post('/leads', (req, res) => {
   try {
     const data = {
@@ -606,12 +610,34 @@ router.post('/leads', (req, res) => {
       mobile: req.body.mobile || req.body.phone || null,
       company: req.body.company || null,
       message: req.body.message || null,
+      source: req.body.source || null,
       received_date: req.body.received_date || new Date().toISOString().split('T')[0]
     };
 
     const result = queries.createLead(data);
     const lead = queries.getLeadById(result.lastInsertRowid);
     res.status(201).json(lead);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Update lead status (not_converted, new, etc.)
+router.put('/leads/:id/status', (req, res) => {
+  try {
+    const lead = queries.getLeadById(req.params.id);
+    if (!lead) {
+      return res.status(404).json({ error: 'Lead not found' });
+    }
+
+    const status = req.body.status;
+    if (!['new', 'not_converted', 'converted'].includes(status)) {
+      return res.status(400).json({ error: 'Invalid status' });
+    }
+
+    queries.updateLeadStatus(req.params.id, status, lead.converted_deal_id);
+    const updated = queries.getLeadById(req.params.id);
+    res.json(updated);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

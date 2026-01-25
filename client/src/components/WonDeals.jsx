@@ -42,10 +42,35 @@ export default function WonDeals() {
   const [loading, setLoading] = useState(true);
   const [editingDeal, setEditingDeal] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [sources, setSources] = useState([]);
+  const [partners, setPartners] = useState([]);
+  const [platforms, setPlatforms] = useState([]);
+  const [products, setProducts] = useState([]);
 
   useEffect(() => {
-    loadDeals();
+    loadData();
   }, []);
+
+  const loadData = async () => {
+    try {
+      const [dealsData, sourcesData, partnersData, platformsData, productsData] = await Promise.all([
+        api.getArchivedWonDeals(),
+        api.getListItems('source'),
+        api.getListItems('partner'),
+        api.getListItems('platform'),
+        api.getListItems('product')
+      ]);
+      setDeals(dealsData || []);
+      setSources(sourcesData || []);
+      setPartners(partnersData || []);
+      setPlatforms(platformsData || []);
+      setProducts(productsData || []);
+    } catch (err) {
+      console.error('Failed to load data:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const loadDeals = async () => {
     try {
@@ -53,8 +78,6 @@ export default function WonDeals() {
       setDeals(data || []);
     } catch (err) {
       console.error('Failed to load won deals:', err);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -111,6 +134,48 @@ export default function WonDeals() {
       .slice(-12)
       .map(([key, data]) => ({
         name: `${MONTH_NAMES[data.month - 1]} ${data.year}`,
+        value: data.value,
+        count: data.count
+      }));
+  }, [deals]);
+
+  // Group by partner for chart
+  const partnerData = useMemo(() => {
+    const partnerMap = {};
+    deals.forEach(deal => {
+      const partnerName = deal.partner_name || 'Unassigned';
+      if (!partnerMap[partnerName]) {
+        partnerMap[partnerName] = { value: 0, count: 0 };
+      }
+      partnerMap[partnerName].value += deal.deal_value || 0;
+      partnerMap[partnerName].count++;
+    });
+
+    return Object.entries(partnerMap)
+      .sort((a, b) => b[1].value - a[1].value)
+      .map(([name, data]) => ({
+        name,
+        value: data.value,
+        count: data.count
+      }));
+  }, [deals]);
+
+  // Group by product for chart
+  const productData = useMemo(() => {
+    const productMap = {};
+    deals.forEach(deal => {
+      const productName = deal.product_name || 'Unassigned';
+      if (!productMap[productName]) {
+        productMap[productName] = { value: 0, count: 0 };
+      }
+      productMap[productName].value += deal.deal_value || 0;
+      productMap[productName].count++;
+    });
+
+    return Object.entries(productMap)
+      .sort((a, b) => b[1].value - a[1].value)
+      .map(([name, data]) => ({
+        name,
         value: data.value,
         count: data.count
       }));
@@ -201,6 +266,104 @@ export default function WonDeals() {
         </div>
       )}
 
+      <div className="archived-charts-row">
+        {partnerData.length > 0 && (
+          <div className="archived-chart half-width">
+            <h3>Won Deals by Partner</h3>
+            <ResponsiveContainer width="100%" height={300}>
+              <ComposedChart data={partnerData} margin={{ top: 20, right: 60, left: 20, bottom: 60 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
+                <XAxis
+                  dataKey="name"
+                  tick={{ fontSize: 11 }}
+                  angle={-45}
+                  textAnchor="end"
+                  height={80}
+                  interval={0}
+                />
+                <YAxis
+                  yAxisId="left"
+                  tickFormatter={formatAxisCurrency}
+                  tick={{ fontSize: 12 }}
+                />
+                <YAxis
+                  yAxisId="right"
+                  orientation="right"
+                  tick={{ fontSize: 12 }}
+                  allowDecimals={false}
+                />
+                <Tooltip content={<CustomTooltip />} />
+                <Legend wrapperStyle={{ paddingTop: 10 }} />
+                <Bar
+                  yAxisId="left"
+                  dataKey="value"
+                  name="Value"
+                  fill="#9c27b0"
+                  radius={[4, 4, 0, 0]}
+                />
+                <Line
+                  yAxisId="right"
+                  type="monotone"
+                  dataKey="count"
+                  name="Count"
+                  stroke="#ff9800"
+                  strokeWidth={2}
+                  dot={{ fill: '#ff9800' }}
+                />
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+
+        {productData.length > 0 && (
+          <div className="archived-chart half-width">
+            <h3>Won Deals by Product</h3>
+            <ResponsiveContainer width="100%" height={300}>
+              <ComposedChart data={productData} margin={{ top: 20, right: 60, left: 20, bottom: 60 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
+                <XAxis
+                  dataKey="name"
+                  tick={{ fontSize: 11 }}
+                  angle={-45}
+                  textAnchor="end"
+                  height={80}
+                  interval={0}
+                />
+                <YAxis
+                  yAxisId="left"
+                  tickFormatter={formatAxisCurrency}
+                  tick={{ fontSize: 12 }}
+                />
+                <YAxis
+                  yAxisId="right"
+                  orientation="right"
+                  tick={{ fontSize: 12 }}
+                  allowDecimals={false}
+                />
+                <Tooltip content={<CustomTooltip />} />
+                <Legend wrapperStyle={{ paddingTop: 10 }} />
+                <Bar
+                  yAxisId="left"
+                  dataKey="value"
+                  name="Value"
+                  fill="#00bcd4"
+                  radius={[4, 4, 0, 0]}
+                />
+                <Line
+                  yAxisId="right"
+                  type="monotone"
+                  dataKey="count"
+                  name="Count"
+                  stroke="#e91e63"
+                  strokeWidth={2}
+                  dot={{ fill: '#e91e63' }}
+                />
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+      </div>
+
       {deals.length === 0 ? (
         <div className="archived-empty">
           <p>No won deals archived yet. Won deals are archived when you close a month.</p>
@@ -260,6 +423,10 @@ export default function WonDeals() {
           onSave={handleSave}
           onRestore={handleRestore}
           statusType="won"
+          sources={sources}
+          partners={partners}
+          platforms={platforms}
+          products={products}
         />
       )}
 
@@ -279,10 +446,11 @@ export default function WonDeals() {
   );
 }
 
-function EditArchivedDealModal({ deal, onClose, onSave, onRestore, statusType }) {
+function EditArchivedDealModal({ deal, onClose, onSave, onRestore, statusType, sources = [], partners = [], platforms = [], products = [] }) {
   const [formData, setFormData] = useState({
     deal_name: deal.deal_name || '',
     contact_name: deal.contact_name || '',
+    source_name: deal.source_name || '',
     partner_name: deal.partner_name || '',
     platform_name: deal.platform_name || '',
     product_name: deal.product_name || '',
@@ -301,6 +469,7 @@ function EditArchivedDealModal({ deal, onClose, onSave, onRestore, statusType })
     onSave({
       id: deal.id,
       ...formData,
+      status: deal.status,
       deal_value: formData.deal_value ? parseFloat(formData.deal_value) : null,
       close_month: formData.close_month ? parseInt(formData.close_month) : null,
       close_year: formData.close_year ? parseInt(formData.close_year) : null
@@ -315,86 +484,112 @@ function EditArchivedDealModal({ deal, onClose, onSave, onRestore, statusType })
           <button className="modal-close" onClick={onClose}>&times;</button>
         </div>
         <form onSubmit={handleSubmit}>
-          <div className="form-grid">
-            <div className="form-group">
-              <label>Deal Name</label>
-              <input
-                type="text"
-                value={formData.deal_name}
-                onChange={e => handleChange('deal_name', e.target.value)}
-                required
-              />
-            </div>
-            <div className="form-group">
-              <label>Contact</label>
-              <input
-                type="text"
-                value={formData.contact_name}
-                onChange={e => handleChange('contact_name', e.target.value)}
-              />
-            </div>
-            <div className="form-group">
-              <label>Partner</label>
-              <input
-                type="text"
-                value={formData.partner_name}
-                onChange={e => handleChange('partner_name', e.target.value)}
-              />
-            </div>
-            <div className="form-group">
-              <label>Platform</label>
-              <input
-                type="text"
-                value={formData.platform_name}
-                onChange={e => handleChange('platform_name', e.target.value)}
-              />
-            </div>
-            <div className="form-group">
-              <label>Product</label>
-              <input
-                type="text"
-                value={formData.product_name}
-                onChange={e => handleChange('product_name', e.target.value)}
-              />
-            </div>
-            <div className="form-group">
-              <label>Value</label>
-              <input
-                type="number"
-                step="0.01"
-                value={formData.deal_value}
-                onChange={e => handleChange('deal_value', e.target.value)}
-              />
-            </div>
-            <div className="form-group">
-              <label>Close Month</label>
-              <select
-                value={formData.close_month}
-                onChange={e => handleChange('close_month', e.target.value)}
-              >
-                <option value="">-</option>
-                {MONTH_NAMES.map((name, i) => (
-                  <option key={i} value={i + 1}>{name}</option>
-                ))}
-              </select>
-            </div>
-            <div className="form-group">
-              <label>Close Year</label>
-              <input
-                type="number"
-                value={formData.close_year}
-                onChange={e => handleChange('close_year', e.target.value)}
-                min="2020"
-                max="2030"
-              />
-            </div>
-            <div className="form-group full-width">
-              <label>Notes</label>
-              <textarea
-                value={formData.notes}
-                onChange={e => handleChange('notes', e.target.value)}
-                rows={3}
-              />
+          <div className="modal-body-scroll">
+            <div className="form-grid">
+              <div className="form-group">
+                <label>Deal Name</label>
+                <input
+                  type="text"
+                  value={formData.deal_name}
+                  onChange={e => handleChange('deal_name', e.target.value)}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label>Contact</label>
+                <input
+                  type="text"
+                  value={formData.contact_name}
+                  onChange={e => handleChange('contact_name', e.target.value)}
+                />
+              </div>
+              <div className="form-group">
+                <label>Source</label>
+                <select
+                  value={formData.source_name}
+                  onChange={e => handleChange('source_name', e.target.value)}
+                >
+                  <option value="">-</option>
+                  {sources.map(s => (
+                    <option key={s.id} value={s.value}>{s.value}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Partner</label>
+                <select
+                  value={formData.partner_name}
+                  onChange={e => handleChange('partner_name', e.target.value)}
+                >
+                  <option value="">-</option>
+                  {partners.map(p => (
+                    <option key={p.id} value={p.value}>{p.value}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Platform</label>
+                <select
+                  value={formData.platform_name}
+                  onChange={e => handleChange('platform_name', e.target.value)}
+                >
+                  <option value="">-</option>
+                  {platforms.map(p => (
+                    <option key={p.id} value={p.value}>{p.value}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Product</label>
+                <select
+                  value={formData.product_name}
+                  onChange={e => handleChange('product_name', e.target.value)}
+                >
+                  <option value="">-</option>
+                  {products.map(p => (
+                    <option key={p.id} value={p.value}>{p.value}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Value</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={formData.deal_value}
+                  onChange={e => handleChange('deal_value', e.target.value)}
+                />
+              </div>
+              <div className="form-group">
+                <label>Close Month</label>
+                <select
+                  value={formData.close_month}
+                  onChange={e => handleChange('close_month', e.target.value)}
+                >
+                  <option value="">-</option>
+                  {MONTH_NAMES.map((name, i) => (
+                    <option key={i} value={i + 1}>{name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Close Year</label>
+                <input
+                  type="number"
+                  value={formData.close_year}
+                  onChange={e => handleChange('close_year', e.target.value)}
+                  min="2020"
+                  max="2030"
+                />
+              </div>
+              <div className="form-group full-width">
+                <label>Notes</label>
+                <textarea
+                  value={formData.notes}
+                  onChange={e => handleChange('notes', e.target.value)}
+                  rows={3}
+                />
+              </div>
             </div>
           </div>
           <div className="modal-actions">

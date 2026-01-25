@@ -4,6 +4,7 @@ const DEAL_FIELDS = [
   { key: '', label: '-- Skip this column --' },
   { key: 'deal_name', label: 'Deal Name' },
   { key: 'contact_name', label: 'Contact' },
+  { key: 'source', label: 'Source', listType: 'source' },
   { key: 'partner', label: 'Partner', listType: 'partner' },
   { key: 'platform', label: 'Platform', listType: 'platform' },
   { key: 'product', label: 'Product', listType: 'product' },
@@ -150,6 +151,7 @@ export default function ImportModal({
   isOpen,
   onClose,
   stages,
+  sources,
   partners,
   platforms,
   products,
@@ -213,6 +215,9 @@ export default function ImportModal({
     const errors = [];
 
     // Build lookup maps from current data (use value property for list items)
+    const sourceMap = new Map();
+    sources.forEach(s => sourceMap.set((s.value || '').toLowerCase().trim(), s.id));
+
     const partnerMap = new Map();
     partners.forEach(p => partnerMap.set((p.value || '').toLowerCase().trim(), p.id));
 
@@ -284,6 +289,22 @@ export default function ImportModal({
                 dealData.status = statusMatch;
               }
             }
+          } else if (fieldDef?.listType === 'source') {
+            const normalizedName = value.trim().toLowerCase();
+            let sourceId = sourceMap.get(normalizedName);
+            if (sourceId === undefined) {
+              // Create new source
+              try {
+                const newItem = await onCreateListItem('source', { value: value.trim() });
+                if (newItem && newItem.id != null) {
+                  sourceId = newItem.id;
+                  sourceMap.set(normalizedName, sourceId);
+                }
+              } catch (err) {
+                console.error('Failed to create source:', err);
+              }
+            }
+            if (sourceId != null) dealData.source_id = sourceId;
           } else if (fieldDef?.listType === 'partner') {
             const normalizedName = value.trim().toLowerCase();
             let partnerId = partnerMap.get(normalizedName);
@@ -390,6 +411,8 @@ export default function ImportModal({
           }
 
           // Get names for the archived deal
+          const sourceName = dealData.source_id ?
+            sources.find(s => s.id === dealData.source_id)?.value || null : null;
           const partnerName = dealData.partner_id ?
             partners.find(p => p.id === dealData.partner_id)?.value || null : null;
           const platformName = dealData.platform_id ?
@@ -402,6 +425,7 @@ export default function ImportModal({
           await onCreateArchivedDeal({
             deal_name: dealData.deal_name,
             contact_name: dealData.contact_name || null,
+            source_name: sourceName,
             partner_name: partnerName,
             platform_name: platformName,
             product_name: productName,

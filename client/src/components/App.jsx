@@ -9,6 +9,7 @@ import SettingsModal from './SettingsModal';
 import ConfirmModal from './ConfirmModal';
 import ImportModal from './ImportModal';
 import WonConfirmModal from './WonConfirmModal';
+import LostConfirmModal from './LostConfirmModal';
 import CloseMonthModal from './CloseMonthModal';
 import * as api from '../api';
 
@@ -18,6 +19,7 @@ export default function App() {
   const [partners, setPartners] = useState([]);
   const [platforms, setPlatforms] = useState([]);
   const [products, setProducts] = useState([]);
+  const [sources, setSources] = useState([]);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [sortConfig, setSortConfig] = useState({ key: 'id', order: 'asc' });
@@ -25,6 +27,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [deleteConfirm, setDeleteConfirm] = useState({ open: false, dealId: null, dealName: '' });
   const [wonConfirm, setWonConfirm] = useState({ open: false, deal: null });
+  const [lostConfirm, setLostConfirm] = useState({ open: false, deal: null });
   const [closeMonthStatus, setCloseMonthStatus] = useState(null);
   const [closeMonthModalOpen, setCloseMonthModalOpen] = useState(false);
 
@@ -51,18 +54,20 @@ export default function App() {
 
   const loadData = async () => {
     try {
-      const [dealsData, stagesData, partnersData, platformsData, productsData] = await Promise.all([
+      const [dealsData, stagesData, partnersData, platformsData, productsData, sourcesData] = await Promise.all([
         api.getDeals(sortConfig.key, sortConfig.order),
         api.getStages(),
         api.getListItems('partner'),
         api.getListItems('platform'),
-        api.getListItems('product')
+        api.getListItems('product'),
+        api.getListItems('source')
       ]);
       setDeals(dealsData || []);
       setStages(stagesData || []);
       setPartners(partnersData || []);
       setPlatforms(platformsData || []);
       setProducts(productsData || []);
+      setSources(sourcesData || []);
     } catch (err) {
       console.error('Failed to load data:', err);
     } finally {
@@ -81,16 +86,18 @@ export default function App() {
 
   const reloadLists = async () => {
     try {
-      const [stagesData, partnersData, platformsData, productsData] = await Promise.all([
+      const [stagesData, partnersData, platformsData, productsData, sourcesData] = await Promise.all([
         api.getStages(),
         api.getListItems('partner'),
         api.getListItems('platform'),
-        api.getListItems('product')
+        api.getListItems('product'),
+        api.getListItems('source')
       ]);
       setStages(stagesData || []);
       setPartners(partnersData || []);
       setPlatforms(platformsData || []);
       setProducts(productsData || []);
+      setSources(sourcesData || []);
     } catch (err) {
       console.error('Failed to reload lists:', err);
     }
@@ -156,6 +163,15 @@ export default function App() {
       }
     }
 
+    // Check if status is being changed to 'lost'
+    if (updates.status === 'lost') {
+      const deal = deals.find(d => d.id === id);
+      if (deal && deal.status !== 'lost') {
+        setLostConfirm({ open: true, deal });
+        return;
+      }
+    }
+
     try {
       const updated = await api.updateDeal(id, updates);
       setDeals(prev => prev.map(d => d.id === id ? updated : d));
@@ -184,6 +200,31 @@ export default function App() {
 
   const handleWonCancel = () => {
     setWonConfirm({ open: false, deal: null });
+  };
+
+  const handleLostConfirm = async (dealId, lossReason) => {
+    setLostConfirm({ open: false, deal: null });
+    try {
+      const deal = deals.find(d => d.id === dealId);
+      // Prepend loss reason to existing notes
+      let newNotes = deal?.notes || '';
+      if (lossReason) {
+        const reasonText = `Loss Reason: ${lossReason}`;
+        newNotes = newNotes ? `${reasonText}\n\n${newNotes}` : reasonText;
+      }
+
+      const updated = await api.updateDeal(dealId, {
+        status: 'lost',
+        notes: newNotes
+      });
+      setDeals(prev => prev.map(d => d.id === dealId ? updated : d));
+    } catch (err) {
+      console.error('Failed to update deal:', err);
+    }
+  };
+
+  const handleLostCancel = () => {
+    setLostConfirm({ open: false, deal: null });
   };
 
   const handleRequestDeleteDeal = (id) => {
@@ -245,6 +286,7 @@ export default function App() {
       if (type === 'partner') setPartners(prev => [...prev, newItem]);
       if (type === 'platform') setPlatforms(prev => [...prev, newItem]);
       if (type === 'product') setProducts(prev => [...prev, newItem]);
+      if (type === 'source') setSources(prev => [...prev, newItem]);
       return newItem;
     } catch (err) {
       console.error('Failed to create list item:', err);
@@ -258,6 +300,7 @@ export default function App() {
       if (type === 'partner') setPartners(prev => prev.map(i => i.id === id ? updated : i));
       if (type === 'platform') setPlatforms(prev => prev.map(i => i.id === id ? updated : i));
       if (type === 'product') setProducts(prev => prev.map(i => i.id === id ? updated : i));
+      if (type === 'source') setSources(prev => prev.map(i => i.id === id ? updated : i));
       await loadDeals();
     } catch (err) {
       console.error('Failed to update list item:', err);
@@ -270,6 +313,7 @@ export default function App() {
       if (type === 'partner') setPartners(prev => prev.filter(i => i.id !== id));
       if (type === 'platform') setPlatforms(prev => prev.filter(i => i.id !== id));
       if (type === 'product') setProducts(prev => prev.filter(i => i.id !== id));
+      if (type === 'source') setSources(prev => prev.filter(i => i.id !== id));
       await loadDeals();
     } catch (err) {
       console.error('Failed to delete list item:', err);
@@ -350,6 +394,7 @@ export default function App() {
           <PipelineTable
             deals={deals}
             stages={stages}
+            sources={sources}
             partners={partners}
             platforms={platforms}
             products={products}
@@ -373,6 +418,7 @@ export default function App() {
         isOpen={settingsOpen}
         onClose={handleSettingsClose}
         stages={stages}
+        sources={sources}
         partners={partners}
         platforms={platforms}
         products={products}
@@ -394,6 +440,7 @@ export default function App() {
         isOpen={importOpen}
         onClose={() => setImportOpen(false)}
         stages={stages}
+        sources={sources}
         partners={partners}
         platforms={platforms}
         products={products}
@@ -409,6 +456,12 @@ export default function App() {
         deal={wonConfirm.deal}
         onConfirm={handleWonConfirm}
         onCancel={handleWonCancel}
+      />
+      <LostConfirmModal
+        isOpen={lostConfirm.open}
+        deal={lostConfirm.deal}
+        onConfirm={handleLostConfirm}
+        onCancel={handleLostCancel}
       />
       <CloseMonthModal
         isOpen={closeMonthModalOpen}

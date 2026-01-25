@@ -35,7 +35,7 @@ function formatCurrency(value) {
   return '$' + Math.round(value).toLocaleString('en-US');
 }
 
-export default function DealRow({ deal, stages, partners, platforms, products, onUpdate, onDelete }) {
+export default function DealRow({ deal, stages, sources, partners, platforms, products, onUpdate, onDelete }) {
   const cellRefs = useRef([]);
 
   const handleChange = (field, value) => {
@@ -107,96 +107,106 @@ export default function DealRow({ deal, stages, partners, platforms, products, o
       </td>
       <td ref={el => cellRefs.current[2] = el}>
         <DropdownCell
+          value={deal.source_id}
+          displayValue={deal.source_name}
+          options={sources}
+          onChange={(v) => handleChange('source_id', v)}
+          placeholder="Source"
+          {...makeTabHandlers(2)}
+        />
+      </td>
+      <td ref={el => cellRefs.current[3] = el}>
+        <DropdownCell
           value={deal.partner_id}
           displayValue={deal.partner_name}
           options={partners}
           onChange={(v) => handleChange('partner_id', v)}
           placeholder="Partner"
-          {...makeTabHandlers(2)}
+          {...makeTabHandlers(3)}
         />
       </td>
-      <td ref={el => cellRefs.current[3] = el}>
+      <td ref={el => cellRefs.current[4] = el}>
         <DropdownCell
           value={deal.platform_id}
           displayValue={deal.platform_name}
           options={platforms}
           onChange={(v) => handleChange('platform_id', v)}
           placeholder="Platform"
-          {...makeTabHandlers(3)}
+          {...makeTabHandlers(4)}
         />
       </td>
-      <td ref={el => cellRefs.current[4] = el}>
+      <td ref={el => cellRefs.current[5] = el}>
         <DropdownCell
           value={deal.product_id}
           displayValue={deal.product_name}
           options={products}
           onChange={(v) => handleChange('product_id', v)}
           placeholder="Product"
-          {...makeTabHandlers(4)}
+          {...makeTabHandlers(5)}
         />
       </td>
-      <td ref={el => cellRefs.current[5] = el}>
+      <td ref={el => cellRefs.current[6] = el}>
         <DropdownCell
           value={deal.deal_stage_id}
           displayValue={deal.deal_stage_name}
           options={stages}
           onChange={(v) => handleChange('deal_stage_id', v)}
           placeholder="Stage"
-          {...makeTabHandlers(5)}
+          {...makeTabHandlers(6)}
         />
       </td>
-      <td ref={el => cellRefs.current[6] = el}>
+      <td ref={el => cellRefs.current[7] = el}>
         <DropdownCell
           value={deal.status}
           displayValue={STATUS_OPTIONS.find(s => s.id === deal.status)?.value}
           options={STATUS_OPTIONS}
           onChange={(v) => handleChange('status', v)}
           placeholder="Status"
-          {...makeTabHandlers(6)}
-        />
-      </td>
-      <td ref={el => cellRefs.current[7] = el}>
-        <EditableCell
-          value={deal.open_date}
-          onChange={(v) => handleChange('open_date', v)}
-          type="date"
           {...makeTabHandlers(7)}
         />
       </td>
       <td ref={el => cellRefs.current[8] = el}>
+        <EditableCell
+          value={deal.open_date}
+          onChange={(v) => handleChange('open_date', v)}
+          type="date"
+          {...makeTabHandlers(8)}
+        />
+      </td>
+      <td ref={el => cellRefs.current[9] = el}>
         <DropdownCell
           value={getCloseDateValue()}
           displayValue={getCloseDateDisplay()}
           options={CLOSE_DATE_OPTIONS}
           onChange={handleCloseDateChange}
           placeholder="Close Date"
-          {...makeTabHandlers(8)}
+          {...makeTabHandlers(9)}
         />
       </td>
-      <td ref={el => cellRefs.current[9] = el}>
+      <td ref={el => cellRefs.current[10] = el}>
         <EditableCell
           value={deal.deal_value}
           onChange={(v) => handleChange('deal_value', v ? parseFloat(v) : null)}
           type="number"
           placeholder="0"
-          {...makeTabHandlers(9)}
+          {...makeTabHandlers(10)}
         />
       </td>
       <td className="forecast-cell">{weightedForecast}</td>
-      <td ref={el => cellRefs.current[10] = el}>
+      <td ref={el => cellRefs.current[11] = el}>
         <EditableCell
           value={deal.notes}
           onChange={(v) => handleChange('notes', v)}
           placeholder="Notes"
-          {...makeTabHandlers(10)}
+          {...makeTabHandlers(11)}
         />
       </td>
-      <td ref={el => cellRefs.current[11] = el}>
+      <td ref={el => cellRefs.current[12] = el}>
         <EditableCell
           value={deal.next_step_date}
           onChange={(v) => handleChange('next_step_date', v)}
           type="date"
-          {...makeTabHandlers(11)}
+          {...makeTabHandlers(12)}
         />
       </td>
       <td>

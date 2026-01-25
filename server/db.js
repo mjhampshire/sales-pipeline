@@ -43,6 +43,7 @@ async function initDb() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       deal_name TEXT NOT NULL,
       contact_name TEXT,
+      source_id INTEGER REFERENCES list_items(id) ON DELETE SET NULL,
       partner_id INTEGER REFERENCES list_items(id) ON DELETE SET NULL,
       platform_id INTEGER REFERENCES list_items(id) ON DELETE SET NULL,
       product_id INTEGER REFERENCES list_items(id) ON DELETE SET NULL,
@@ -58,6 +59,13 @@ async function initDb() {
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
   `);
+
+  // Add source_id column if it doesn't exist (migration for existing databases)
+  try {
+    db.run('ALTER TABLE deals ADD COLUMN source_id INTEGER REFERENCES list_items(id) ON DELETE SET NULL');
+  } catch (e) {
+    // Column already exists, ignore
+  }
 
   // Monthly snapshot summary
   db.run(`
@@ -91,6 +99,7 @@ async function initDb() {
       original_deal_id INTEGER,
       deal_name TEXT NOT NULL,
       contact_name TEXT,
+      source_name TEXT,
       partner_name TEXT,
       platform_name TEXT,
       product_name TEXT,
@@ -107,6 +116,13 @@ async function initDb() {
     )
   `);
 
+  // Add source_name column if it doesn't exist (migration for existing databases)
+  try {
+    db.run('ALTER TABLE archived_deals ADD COLUMN source_name TEXT');
+  } catch (e) {
+    // Column already exists, ignore
+  }
+
   // Leads from website
   db.run(`
     CREATE TABLE IF NOT EXISTS leads (
@@ -117,12 +133,20 @@ async function initDb() {
       mobile TEXT,
       company TEXT,
       message TEXT,
+      source TEXT,
       received_date DATE DEFAULT (date('now')),
       status TEXT DEFAULT 'new',
       converted_deal_id INTEGER REFERENCES deals(id) ON DELETE SET NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
   `);
+
+  // Add source column if it doesn't exist (migration for existing databases)
+  try {
+    db.run('ALTER TABLE leads ADD COLUMN source TEXT');
+  } catch (e) {
+    // Column already exists, ignore
+  }
 
   // Track closed months
   db.run(`
@@ -275,11 +299,13 @@ const queries = {
         d.*,
         ds.name as deal_stage_name,
         ds.probability as deal_stage_probability,
+        src.value as source_name,
         p.value as partner_name,
         pl.value as platform_name,
         pr.value as product_name
       FROM deals d
       LEFT JOIN deal_stages ds ON d.deal_stage_id = ds.id
+      LEFT JOIN list_items src ON d.source_id = src.id
       LEFT JOIN list_items p ON d.partner_id = p.id
       LEFT JOIN list_items pl ON d.platform_id = pl.id
       LEFT JOIN list_items pr ON d.product_id = pr.id
@@ -292,11 +318,13 @@ const queries = {
       d.*,
       ds.name as deal_stage_name,
       ds.probability as deal_stage_probability,
+      src.value as source_name,
       p.value as partner_name,
       pl.value as platform_name,
       pr.value as product_name
     FROM deals d
     LEFT JOIN deal_stages ds ON d.deal_stage_id = ds.id
+    LEFT JOIN list_items src ON d.source_id = src.id
     LEFT JOIN list_items p ON d.partner_id = p.id
     LEFT JOIN list_items pl ON d.platform_id = pl.id
     LEFT JOIN list_items pr ON d.product_id = pr.id
@@ -304,14 +332,15 @@ const queries = {
   `, [id]),
 
   createDeal: (data) => run(`
-    INSERT INTO deals (deal_name, contact_name, partner_id, platform_id, product_id, deal_stage_id, status, open_date, close_month, close_year, deal_value, notes, next_step_date)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `, [data.deal_name, data.contact_name, data.partner_id, data.platform_id, data.product_id, data.deal_stage_id, data.status, data.open_date, data.close_month, data.close_year, data.deal_value, data.notes, data.next_step_date]),
+    INSERT INTO deals (deal_name, contact_name, source_id, partner_id, platform_id, product_id, deal_stage_id, status, open_date, close_month, close_year, deal_value, notes, next_step_date)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `, [data.deal_name, data.contact_name, data.source_id, data.partner_id, data.platform_id, data.product_id, data.deal_stage_id, data.status, data.open_date, data.close_month, data.close_year, data.deal_value, data.notes, data.next_step_date]),
 
   updateDeal: (data) => run(`
     UPDATE deals SET
       deal_name = ?,
       contact_name = ?,
+      source_id = ?,
       partner_id = ?,
       platform_id = ?,
       product_id = ?,
@@ -325,7 +354,7 @@ const queries = {
       next_step_date = ?,
       updated_at = CURRENT_TIMESTAMP
     WHERE id = ?
-  `, [data.deal_name, data.contact_name, data.partner_id, data.platform_id, data.product_id, data.deal_stage_id, data.status, data.open_date, data.close_month, data.close_year, data.deal_value, data.notes, data.next_step_date, data.id]),
+  `, [data.deal_name, data.contact_name, data.source_id, data.partner_id, data.platform_id, data.product_id, data.deal_stage_id, data.status, data.open_date, data.close_month, data.close_year, data.deal_value, data.notes, data.next_step_date, data.id]),
 
   deleteDeal: (id) => run('DELETE FROM deals WHERE id = ?', [id]),
 
@@ -393,6 +422,7 @@ const queries = {
     UPDATE archived_deals SET
       deal_name = ?,
       contact_name = ?,
+      source_name = ?,
       partner_name = ?,
       platform_name = ?,
       product_name = ?,
@@ -404,7 +434,7 @@ const queries = {
       deal_value = ?,
       notes = ?
     WHERE id = ?
-  `, [data.deal_name, data.contact_name, data.partner_name, data.platform_name,
+  `, [data.deal_name, data.contact_name, data.source_name, data.partner_name, data.platform_name,
       data.product_name, data.deal_stage_name, data.status, data.open_date,
       data.close_month, data.close_year, data.deal_value, data.notes, data.id]),
 
@@ -412,12 +442,12 @@ const queries = {
 
   createArchivedDeal: (data) => run(`
     INSERT INTO archived_deals (
-      original_deal_id, deal_name, contact_name, partner_name, platform_name,
+      original_deal_id, deal_name, contact_name, source_name, partner_name, platform_name,
       product_name, deal_stage_name, status, open_date, close_month, close_year,
       deal_value, notes, archived_for_month, archived_for_year
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `, [
-    data.original_deal_id, data.deal_name, data.contact_name, data.partner_name,
+    data.original_deal_id, data.deal_name, data.contact_name, data.source_name, data.partner_name,
     data.platform_name, data.product_name, data.deal_stage_name, data.status,
     data.open_date, data.close_month, data.close_year, data.deal_value,
     data.notes, data.archived_for_month, data.archived_for_year
@@ -448,11 +478,13 @@ const queries = {
       d.*,
       ds.name as deal_stage_name,
       ds.probability as deal_stage_probability,
+      src.value as source_name,
       p.value as partner_name,
       pl.value as platform_name,
       pr.value as product_name
     FROM deals d
     LEFT JOIN deal_stages ds ON d.deal_stage_id = ds.id
+    LEFT JOIN list_items src ON d.source_id = src.id
     LEFT JOIN list_items p ON d.partner_id = p.id
     LEFT JOIN list_items pl ON d.platform_id = pl.id
     LEFT JOIN list_items pr ON d.product_id = pr.id
@@ -469,10 +501,10 @@ const queries = {
   getLeadById: (id) => queryOne('SELECT * FROM leads WHERE id = ?', [id]),
 
   createLead: (data) => run(`
-    INSERT INTO leads (firstname, lastname, email, mobile, company, message, received_date)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO leads (firstname, lastname, email, mobile, company, message, source, received_date)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `, [data.firstname, data.lastname, data.email, data.mobile, data.company, data.message,
-      data.received_date || new Date().toISOString().split('T')[0]]),
+      data.source, data.received_date || new Date().toISOString().split('T')[0]]),
 
   deleteLead: (id) => run('DELETE FROM leads WHERE id = ?', [id]),
 
@@ -486,11 +518,13 @@ const queries = {
       d.*,
       ds.name as deal_stage_name,
       ds.probability as deal_stage_probability,
+      src.value as source_name,
       p.value as partner_name,
       pl.value as platform_name,
       pr.value as product_name
     FROM deals d
     LEFT JOIN deal_stages ds ON d.deal_stage_id = ds.id
+    LEFT JOIN list_items src ON d.source_id = src.id
     LEFT JOIN list_items p ON d.partner_id = p.id
     LEFT JOIN list_items pl ON d.platform_id = pl.id
     LEFT JOIN list_items pr ON d.product_id = pr.id

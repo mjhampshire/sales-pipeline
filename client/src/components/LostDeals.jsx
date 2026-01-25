@@ -42,10 +42,35 @@ export default function LostDeals() {
   const [loading, setLoading] = useState(true);
   const [editingDeal, setEditingDeal] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [sources, setSources] = useState([]);
+  const [partners, setPartners] = useState([]);
+  const [platforms, setPlatforms] = useState([]);
+  const [products, setProducts] = useState([]);
 
   useEffect(() => {
-    loadDeals();
+    loadData();
   }, []);
+
+  const loadData = async () => {
+    try {
+      const [dealsData, sourcesData, partnersData, platformsData, productsData] = await Promise.all([
+        api.getArchivedLostDeals(),
+        api.getListItems('source'),
+        api.getListItems('partner'),
+        api.getListItems('platform'),
+        api.getListItems('product')
+      ]);
+      setDeals(dealsData || []);
+      setSources(sourcesData || []);
+      setPartners(partnersData || []);
+      setPlatforms(platformsData || []);
+      setProducts(productsData || []);
+    } catch (err) {
+      console.error('Failed to load data:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const loadDeals = async () => {
     try {
@@ -53,8 +78,6 @@ export default function LostDeals() {
       setDeals(data || []);
     } catch (err) {
       console.error('Failed to load lost deals:', err);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -215,6 +238,7 @@ export default function LostDeals() {
               <th>Product</th>
               <th>Close Date</th>
               <th style={{ textAlign: 'right' }}>Value</th>
+              <th>Notes</th>
               <th style={{ width: '80px' }}>Actions</th>
             </tr>
           </thead>
@@ -231,6 +255,7 @@ export default function LostDeals() {
                     : '-'}
                 </td>
                 <td className="value-cell lost-value">{formatCurrency(deal.deal_value)}</td>
+                <td className="notes-cell">{deal.notes || '-'}</td>
                 <td className="actions-cell">
                   <button
                     className="btn-icon"
@@ -260,6 +285,10 @@ export default function LostDeals() {
           onSave={handleSave}
           onRestore={handleRestore}
           statusType="lost"
+          sources={sources}
+          partners={partners}
+          platforms={platforms}
+          products={products}
         />
       )}
 
@@ -279,10 +308,11 @@ export default function LostDeals() {
   );
 }
 
-function EditArchivedDealModal({ deal, onClose, onSave, onRestore, statusType }) {
+function EditArchivedDealModal({ deal, onClose, onSave, onRestore, statusType, sources = [], partners = [], platforms = [], products = [] }) {
   const [formData, setFormData] = useState({
     deal_name: deal.deal_name || '',
     contact_name: deal.contact_name || '',
+    source_name: deal.source_name || '',
     partner_name: deal.partner_name || '',
     platform_name: deal.platform_name || '',
     product_name: deal.product_name || '',
@@ -301,6 +331,7 @@ function EditArchivedDealModal({ deal, onClose, onSave, onRestore, statusType })
     onSave({
       id: deal.id,
       ...formData,
+      status: deal.status,
       deal_value: formData.deal_value ? parseFloat(formData.deal_value) : null,
       close_month: formData.close_month ? parseInt(formData.close_month) : null,
       close_year: formData.close_year ? parseInt(formData.close_year) : null
@@ -315,86 +346,112 @@ function EditArchivedDealModal({ deal, onClose, onSave, onRestore, statusType })
           <button className="modal-close" onClick={onClose}>&times;</button>
         </div>
         <form onSubmit={handleSubmit}>
-          <div className="form-grid">
-            <div className="form-group">
-              <label>Deal Name</label>
-              <input
-                type="text"
-                value={formData.deal_name}
-                onChange={e => handleChange('deal_name', e.target.value)}
-                required
-              />
-            </div>
-            <div className="form-group">
-              <label>Contact</label>
-              <input
-                type="text"
-                value={formData.contact_name}
-                onChange={e => handleChange('contact_name', e.target.value)}
-              />
-            </div>
-            <div className="form-group">
-              <label>Partner</label>
-              <input
-                type="text"
-                value={formData.partner_name}
-                onChange={e => handleChange('partner_name', e.target.value)}
-              />
-            </div>
-            <div className="form-group">
-              <label>Platform</label>
-              <input
-                type="text"
-                value={formData.platform_name}
-                onChange={e => handleChange('platform_name', e.target.value)}
-              />
-            </div>
-            <div className="form-group">
-              <label>Product</label>
-              <input
-                type="text"
-                value={formData.product_name}
-                onChange={e => handleChange('product_name', e.target.value)}
-              />
-            </div>
-            <div className="form-group">
-              <label>Value</label>
-              <input
-                type="number"
-                step="0.01"
-                value={formData.deal_value}
-                onChange={e => handleChange('deal_value', e.target.value)}
-              />
-            </div>
-            <div className="form-group">
-              <label>Close Month</label>
-              <select
-                value={formData.close_month}
-                onChange={e => handleChange('close_month', e.target.value)}
-              >
-                <option value="">-</option>
-                {MONTH_NAMES.map((name, i) => (
-                  <option key={i} value={i + 1}>{name}</option>
-                ))}
-              </select>
-            </div>
-            <div className="form-group">
-              <label>Close Year</label>
-              <input
-                type="number"
-                value={formData.close_year}
-                onChange={e => handleChange('close_year', e.target.value)}
-                min="2020"
-                max="2030"
-              />
-            </div>
-            <div className="form-group full-width">
-              <label>Notes</label>
-              <textarea
-                value={formData.notes}
-                onChange={e => handleChange('notes', e.target.value)}
-                rows={3}
-              />
+          <div className="modal-body-scroll">
+            <div className="form-grid">
+              <div className="form-group">
+                <label>Deal Name</label>
+                <input
+                  type="text"
+                  value={formData.deal_name}
+                  onChange={e => handleChange('deal_name', e.target.value)}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label>Contact</label>
+                <input
+                  type="text"
+                  value={formData.contact_name}
+                  onChange={e => handleChange('contact_name', e.target.value)}
+                />
+              </div>
+              <div className="form-group">
+                <label>Source</label>
+                <select
+                  value={formData.source_name}
+                  onChange={e => handleChange('source_name', e.target.value)}
+                >
+                  <option value="">-</option>
+                  {sources.map(s => (
+                    <option key={s.id} value={s.value}>{s.value}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Partner</label>
+                <select
+                  value={formData.partner_name}
+                  onChange={e => handleChange('partner_name', e.target.value)}
+                >
+                  <option value="">-</option>
+                  {partners.map(p => (
+                    <option key={p.id} value={p.value}>{p.value}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Platform</label>
+                <select
+                  value={formData.platform_name}
+                  onChange={e => handleChange('platform_name', e.target.value)}
+                >
+                  <option value="">-</option>
+                  {platforms.map(p => (
+                    <option key={p.id} value={p.value}>{p.value}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Product</label>
+                <select
+                  value={formData.product_name}
+                  onChange={e => handleChange('product_name', e.target.value)}
+                >
+                  <option value="">-</option>
+                  {products.map(p => (
+                    <option key={p.id} value={p.value}>{p.value}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Value</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={formData.deal_value}
+                  onChange={e => handleChange('deal_value', e.target.value)}
+                />
+              </div>
+              <div className="form-group">
+                <label>Close Month</label>
+                <select
+                  value={formData.close_month}
+                  onChange={e => handleChange('close_month', e.target.value)}
+                >
+                  <option value="">-</option>
+                  {MONTH_NAMES.map((name, i) => (
+                    <option key={i} value={i + 1}>{name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Close Year</label>
+                <input
+                  type="number"
+                  value={formData.close_year}
+                  onChange={e => handleChange('close_year', e.target.value)}
+                  min="2020"
+                  max="2030"
+                />
+              </div>
+              <div className="form-group full-width">
+                <label>Notes</label>
+                <textarea
+                  value={formData.notes}
+                  onChange={e => handleChange('notes', e.target.value)}
+                  rows={3}
+                />
+              </div>
             </div>
           </div>
           <div className="modal-actions">

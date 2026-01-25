@@ -3,6 +3,7 @@ import DealRow from './DealRow';
 const COLUMNS = [
   { key: 'deal_name', label: 'Deal Name' },
   { key: 'contact_name', label: 'Contact' },
+  { key: 'source', label: 'Source', sortable: false },
   { key: 'partner', label: 'Partner', sortable: false },
   { key: 'platform', label: 'Platform' },
   { key: 'product', label: 'Product' },
@@ -20,6 +21,7 @@ const COLUMNS = [
 export default function PipelineTable({
   deals,
   stages,
+  sources,
   partners,
   platforms,
   products,
@@ -62,6 +64,7 @@ export default function PipelineTable({
               key={deal.id}
               deal={deal}
               stages={stages}
+              sources={sources}
               partners={partners}
               platforms={platforms}
               products={products}

@@ -180,6 +180,15 @@ export async function deleteLead(id) {
   return handleResponse(res);
 }
 
+export async function updateLeadStatus(id, status) {
+  const res = await fetch(`${API_BASE}/leads/${id}/status`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status })
+  });
+  return handleResponse(res);
+}
+
 export async function checkDealNameExists(name) {
   const res = await fetch(`${API_BASE}/deals/check-name?name=${encodeURIComponent(name)}`);
   return handleResponse(res);

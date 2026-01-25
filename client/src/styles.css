@@ -338,6 +338,7 @@ body {
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
 
 .modal-header {
@@ -945,6 +946,60 @@ body {
   border-color: #2196f3;
 }
 
+/* Lost Deal Modal */
+.lost-modal {
+  max-width: 450px;
+}
+
+.lost-deal-name {
+  font-size: 18px;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin-bottom: 16px;
+}
+
+.lost-field {
+  margin-bottom: 20px;
+}
+
+.lost-label {
+  display: block;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 8px;
+}
+
+.lost-reason-input {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.lost-reason-input:focus {
+  outline: none;
+  border-color: #f44336;
+}
+
+.btn-lost {
+  background: #d32f2f;
+}
+
+.btn-lost:hover {
+  background: #b71c1c;
+}
+
+/* Notes cell in archived tables */
+.notes-cell {
+  max-width: 250px;
+  white-space: pre-wrap;
+  font-size: 13px;
+  color: #555;
+}
+
 /* Close Month Button */
 .close-month-btn {
   padding: 8px 16px;
@@ -1189,6 +1244,28 @@ body {
   background: #c8e6c9;
 }
 
+.leads-table .lead-not-converted {
+  background: #616161;
+  color: #fff;
+}
+
+.leads-table .lead-not-converted:hover {
+  background: #757575;
+}
+
+.leads-table .lead-not-converted .email-link {
+  color: #90caf9;
+}
+
+.leads-table .lead-not-converted .btn-convert {
+  background: #fff;
+  color: #1976d2;
+}
+
+.leads-table .lead-not-converted .btn-icon {
+  color: #fff;
+}
+
 .converted-badge {
   display: inline-block;
   padding: 4px 8px;
@@ -1215,6 +1292,71 @@ body {
 .btn-convert:hover {
   background: #bbdefb;
   border-color: #64b5f6;
+}
+
+.btn-not-converted {
+  padding: 6px 10px;
+  background: #757575;
+  border: 1px solid #616161;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 11px;
+  color: #fff;
+  transition: all 0.2s;
+  margin-right: 8px;
+}
+
+.btn-not-converted:hover {
+  background: #616161;
+  border-color: #424242;
+}
+
+.leads-header-right {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.add-lead-btn {
+  padding: 8px 16px;
+  font-size: 14px;
+}
+
+.add-lead-modal {
+  max-width: 550px;
+}
+
+.add-lead-modal .form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.add-lead-modal .form-group {
+  margin-bottom: 16px;
+}
+
+.add-lead-modal .form-group label {
+  display: block;
+  font-weight: 500;
+  margin-bottom: 6px;
+  color: #333;
+}
+
+.add-lead-modal .form-group input,
+.add-lead-modal .form-group textarea {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: inherit;
+}
+
+.add-lead-modal .form-group input:focus,
+.add-lead-modal .form-group textarea:focus {
+  outline: none;
+  border-color: #2196f3;
 }
 
 .convert-modal {
@@ -1452,6 +1594,28 @@ body {
   margin-bottom: 16px;
 }
 
+.archived-charts-row {
+  display: flex;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.archived-chart.half-width {
+  flex: 1;
+  min-width: 0;
+  margin-bottom: 0;
+}
+
+@media (max-width: 1200px) {
+  .archived-charts-row {
+    flex-direction: column;
+  }
+
+  .archived-chart.half-width {
+    margin-bottom: 24px;
+  }
+}
+
 .archived-empty {
   background: #fff;
   border-radius: 8px;
@@ -1533,13 +1697,28 @@ body {
 /* Edit archived deal modal */
 .edit-archived-modal {
   max-width: 600px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.edit-archived-modal .modal-body-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  max-height: calc(90vh - 140px);
+}
+
+.edit-archived-modal .modal-actions {
+  padding: 16px 20px;
+  border-top: 1px solid #eee;
+  background: #fff;
 }
 
 .form-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
-  margin-bottom: 24px;
 }
 
 .form-group {
@@ -1611,11 +1790,16 @@ body {
 .confirm-modal {
   max-width: 400px;
   text-align: center;
+  padding: 24px;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
 
 .confirm-modal h3 {
   margin-bottom: 12px;
   font-size: 18px;
+  color: #1a1a1a;
 }
 
 .confirm-modal p {

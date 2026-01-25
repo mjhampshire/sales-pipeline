@@ -63,6 +63,7 @@ export default function SettingsModal({
   isOpen,
   onClose,
   stages,
+  sources,
   partners,
   platforms,
   products,
@@ -81,6 +82,7 @@ export default function SettingsModal({
 
   const tabs = [
     { id: 'stages', label: 'Deal Stages' },
+    { id: 'source', label: 'Sources' },
     { id: 'partner', label: 'Partners' },
     { id: 'platform', label: 'Platforms' },
     { id: 'product', label: 'Products' }
@@ -100,7 +102,7 @@ export default function SettingsModal({
 
   const handleAddListItem = (type) => {
     if (!newItemValue.trim()) return;
-    const items = type === 'partner' ? partners : type === 'platform' ? platforms : products;
+    const items = type === 'partner' ? partners : type === 'platform' ? platforms : type === 'source' ? sources : products;
     const maxOrder = items.reduce((max, i) => Math.max(max, i.sort_order || 0), 0);
     onCreateListItem(type, {
       value: newItemValue.trim(),
@@ -187,6 +189,7 @@ export default function SettingsModal({
         </div>
         <div className="modal-body">
           {activeTab === 'stages' && renderStagesTab()}
+          {activeTab === 'source' && renderListTab('source', sources)}
           {activeTab === 'partner' && renderListTab('partner', partners)}
           {activeTab === 'platform' && renderListTab('platform', platforms)}
           {activeTab === 'product' && renderListTab('product', products)}
