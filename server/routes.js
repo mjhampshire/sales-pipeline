@@ -53,24 +53,28 @@ router.put('/deals/:id', async (req, res) => {
       return res.status(404).json({ error: 'Deal not found' });
     }
 
+    // Helper to get value from body or fall back to existing
+    // Uses 'in' operator to allow explicit null values
+    const getValue = (key) => key in req.body ? req.body[key] : existing[key];
+
     const data = {
       id: parseInt(req.params.id),
-      deal_name: req.body.deal_name ?? existing.deal_name,
-      contact_name: req.body.contact_name ?? existing.contact_name,
-      source_id: req.body.source_id ?? existing.source_id,
-      partner_id: req.body.partner_id ?? existing.partner_id,
-      platform_id: req.body.platform_id ?? existing.platform_id,
-      product_id: req.body.product_id ?? existing.product_id,
-      deal_stage_id: req.body.deal_stage_id ?? existing.deal_stage_id,
-      status: req.body.status ?? existing.status,
-      open_date: req.body.open_date ?? existing.open_date,
-      close_month: req.body.close_month ?? existing.close_month,
-      close_year: req.body.close_year ?? existing.close_year,
-      deal_value: req.body.deal_value ?? existing.deal_value,
-      notes: req.body.notes ?? existing.notes,
-      next_step_date: req.body.next_step_date ?? existing.next_step_date,
-      is_priority: req.body.is_priority ?? existing.is_priority,
-      row_color: req.body.row_color !== undefined ? req.body.row_color : existing.row_color
+      deal_name: getValue('deal_name'),
+      contact_name: getValue('contact_name'),
+      source_id: getValue('source_id'),
+      partner_id: getValue('partner_id'),
+      platform_id: getValue('platform_id'),
+      product_id: getValue('product_id'),
+      deal_stage_id: getValue('deal_stage_id'),
+      status: getValue('status'),
+      open_date: getValue('open_date'),
+      close_month: getValue('close_month'),
+      close_year: getValue('close_year'),
+      deal_value: getValue('deal_value'),
+      notes: getValue('notes'),
+      next_step_date: getValue('next_step_date'),
+      is_priority: getValue('is_priority'),
+      row_color: getValue('row_color')
     };
 
     // Validation: Deals at 40%+ probability must have close date and deal value
