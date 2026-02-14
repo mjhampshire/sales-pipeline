@@ -241,6 +241,7 @@ export default function App() {
       setDeals(prev => prev.map(d => d.id === id ? updated : d));
     } catch (err) {
       console.error('Failed to update deal:', err);
+      alert(err.message || 'Failed to update deal');
     }
   };
 

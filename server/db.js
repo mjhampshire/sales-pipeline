@@ -398,6 +398,7 @@ const queries = {
 
   // Deal Stages
   getAllStages: () => queryAll('SELECT * FROM deal_stages ORDER BY sort_order'),
+  getStageById: (id) => queryOne('SELECT * FROM deal_stages WHERE id = ?', [id]),
   createStage: (name, probability, sort_order) => run('INSERT INTO deal_stages (name, probability, sort_order) VALUES (?, ?, ?)', [name, probability, sort_order]),
   updateStage: (name, probability, sort_order, id) => run('UPDATE deal_stages SET name = ?, probability = ?, sort_order = ? WHERE id = ?', [name, probability, sort_order, id]),
   deleteStage: (id) => run('DELETE FROM deal_stages WHERE id = ?', [id]),

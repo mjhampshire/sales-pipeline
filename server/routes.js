@@ -73,6 +73,26 @@ router.put('/deals/:id', (req, res) => {
       row_color: req.body.row_color !== undefined ? req.body.row_color : existing.row_color
     };
 
+    // Validation: Deals at 40%+ probability must have close date and deal value
+    if (data.deal_stage_id) {
+      const stage = queries.getStageById(data.deal_stage_id);
+      if (stage && stage.probability >= 40) {
+        const hasCloseDate = data.close_month && data.close_year;
+        const hasDealValue = data.deal_value != null && data.deal_value !== '';
+
+        if (!hasCloseDate || !hasDealValue) {
+          const missing = [];
+          if (!hasCloseDate) missing.push('close date');
+          if (!hasDealValue) missing.push('deal value');
+          return res.status(400).json({
+            error: `Deals at 40% or above must have a ${missing.join(' and ')}`,
+            validationError: true,
+            missingFields: missing
+          });
+        }
+      }
+    }
+
     queries.updateDeal(data);
     const deal = queries.getDealById(req.params.id);
     res.json(deal);
