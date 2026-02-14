@@ -46,7 +46,7 @@ function formatCurrency(value) {
   return '$' + Math.round(value).toLocaleString('en-US');
 }
 
-export default function DealRow({ deal, stages, sources, partners, platforms, products, onUpdate, onDelete }) {
+export default function DealRow({ deal, stages, sources, partners, platforms, products, onUpdate, onDelete, notesWidth }) {
   const cellRefs = useRef([]);
   const colorPickerRef = useRef(null);
   const [showColorPicker, setShowColorPicker] = useState(false);
@@ -277,7 +277,7 @@ export default function DealRow({ deal, stages, sources, partners, platforms, pr
         />
       </td>
       <td className="forecast-cell">{weightedForecast}</td>
-      <td ref={el => cellRefs.current[11] = el}>
+      <td ref={el => cellRefs.current[11] = el} style={{ width: notesWidth, minWidth: notesWidth, maxWidth: notesWidth }}>
         <EditableCell
           value={deal.notes}
           onChange={(v) => handleChange('notes', v)}

@@ -121,6 +121,30 @@ body {
   background: #f0f0f0;
 }
 
+/* Resizable column header */
+.resizable-header {
+  position: relative;
+}
+
+.resize-handle {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  cursor: col-resize;
+  background: transparent;
+  transition: background 0.2s;
+}
+
+.resize-handle:hover {
+  background: #90caf9;
+}
+
+.resize-handle:active {
+  background: #1976d2;
+}
+
 .pipeline-table td {
   padding: 4px;
   border-bottom: 1px solid #eee;

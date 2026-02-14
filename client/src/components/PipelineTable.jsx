@@ -1,3 +1,4 @@
+import { useState, useEffect, useRef } from 'react';
 import DealRow from './DealRow';
 
 const COLUMNS = [
@@ -34,6 +35,45 @@ export default function PipelineTable({
   sortConfig,
   onSort
 }) {
+  const [notesWidth, setNotesWidth] = useState(() => {
+    const saved = localStorage.getItem('notesColumnWidth');
+    return saved ? parseInt(saved, 10) : 200;
+  });
+  const resizingRef = useRef(false);
+  const startXRef = useRef(0);
+  const startWidthRef = useRef(0);
+
+  useEffect(() => {
+    localStorage.setItem('notesColumnWidth', notesWidth.toString());
+  }, [notesWidth]);
+
+  const handleResizeStart = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    resizingRef.current = true;
+    startXRef.current = e.clientX;
+    startWidthRef.current = notesWidth;
+    document.addEventListener('mousemove', handleResizeMove);
+    document.addEventListener('mouseup', handleResizeEnd);
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  };
+
+  const handleResizeMove = (e) => {
+    if (!resizingRef.current) return;
+    const diff = e.clientX - startXRef.current;
+    const newWidth = Math.max(100, Math.min(600, startWidthRef.current + diff));
+    setNotesWidth(newWidth);
+  };
+
+  const handleResizeEnd = () => {
+    resizingRef.current = false;
+    document.removeEventListener('mousemove', handleResizeMove);
+    document.removeEventListener('mouseup', handleResizeEnd);
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+  };
+
   const handleHeaderClick = (col) => {
     if (col.sortable === false) return;
     onSort(col.key);
@@ -53,9 +93,17 @@ export default function PipelineTable({
               <th
                 key={col.key}
                 onClick={() => handleHeaderClick(col)}
-                className={col.sortable !== false ? 'sortable' : ''}
+                className={`${col.sortable !== false ? 'sortable' : ''} ${col.key === 'notes' ? 'resizable-header' : ''}`}
+                style={col.key === 'notes' ? { width: notesWidth, minWidth: notesWidth, maxWidth: notesWidth } : undefined}
               >
                 {col.label}{getSortIndicator(col.key)}
+                {col.key === 'notes' && (
+                  <div
+                    className="resize-handle"
+                    onMouseDown={handleResizeStart}
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                )}
               </th>
             ))}
           </tr>
@@ -72,6 +120,7 @@ export default function PipelineTable({
               products={products}
               onUpdate={onUpdateDeal}
               onDelete={onDeleteDeal}
+              notesWidth={notesWidth}
             />
           ))}
         </tbody>
