@@ -22,11 +22,10 @@ const ROW_COLORS = [
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-// Generate close date options: current year + 5 years, all months
-const generateCloseDateOptions = () => {
+// Generate date options for dropdowns
+const generateDateOptions = (startYear, endYear) => {
   const options = [];
-  const currentYear = new Date().getFullYear();
-  for (let year = currentYear; year <= currentYear + 5; year++) {
+  for (let year = startYear; year <= endYear; year++) {
     for (let month = 0; month < 12; month++) {
       options.push({
         id: `${year}-${month + 1}`,
@@ -39,7 +38,11 @@ const generateCloseDateOptions = () => {
   return options;
 };
 
-const CLOSE_DATE_OPTIONS = generateCloseDateOptions();
+const currentYear = new Date().getFullYear();
+// Open date: 3 years back to current year
+const OPEN_DATE_OPTIONS = generateDateOptions(currentYear - 3, currentYear);
+// Close date: current year + 5 years
+const CLOSE_DATE_OPTIONS = generateDateOptions(currentYear, currentYear + 5);
 
 function formatCurrency(value) {
   if (value == null || isNaN(value)) return '-';
@@ -75,6 +78,39 @@ export default function DealRow({ deal, stages, sources, partners, platforms, pr
   const handleColorChange = (colorId) => {
     onUpdate(deal.id, { row_color: colorId });
     setShowColorPicker(false);
+  };
+
+  const handleOpenDateChange = (value) => {
+    if (!value) {
+      onUpdate(deal.id, { open_date: null });
+    } else {
+      const [year, month] = value.split('-').map(Number);
+      // Store as first day of month in YYYY-MM-DD format
+      const dateStr = `${year}-${String(month).padStart(2, '0')}-01`;
+      onUpdate(deal.id, { open_date: dateStr });
+    }
+  };
+
+  const getOpenDateValue = () => {
+    if (deal.open_date) {
+      const dateStr = typeof deal.open_date === 'string' && deal.open_date.includes('T')
+        ? deal.open_date.split('T')[0]
+        : deal.open_date;
+      const [year, month] = dateStr.split('-').map(Number);
+      return `${year}-${month}`;
+    }
+    return null;
+  };
+
+  const getOpenDateDisplay = () => {
+    if (deal.open_date) {
+      const dateStr = typeof deal.open_date === 'string' && deal.open_date.includes('T')
+        ? deal.open_date.split('T')[0]
+        : deal.open_date;
+      const [year, month] = dateStr.split('-').map(Number);
+      return `${MONTHS[month - 1]} ${year}`;
+    }
+    return null;
   };
 
   const handleCloseDateChange = (value) => {
@@ -250,10 +286,12 @@ export default function DealRow({ deal, stages, sources, partners, platforms, pr
         />
       </td>
       <td ref={el => cellRefs.current[8] = el}>
-        <EditableCell
-          value={deal.open_date}
-          onChange={(v) => handleChange('open_date', v)}
-          type="date"
+        <DropdownCell
+          value={getOpenDateValue()}
+          displayValue={getOpenDateDisplay()}
+          options={OPEN_DATE_OPTIONS}
+          onChange={handleOpenDateChange}
+          placeholder="Open Date"
           {...makeTabHandlers(8)}
         />
       </td>
