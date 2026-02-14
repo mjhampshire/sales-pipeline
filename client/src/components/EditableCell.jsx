@@ -124,6 +124,9 @@ export default function EditableCell({ value, onChange, type = 'text', placehold
     );
   }
 
+  // Use localValue for display to show immediate updates (before API response)
+  const currentDisplayValue = type === 'date' ? formatDateForDisplay(localValue) : localValue;
+
   return (
     <div
       className="cell-display"
@@ -137,7 +140,7 @@ export default function EditableCell({ value, onChange, type = 'text', placehold
         }
       }}
     >
-      {displayValue || <span className="placeholder">{placeholder}</span>}
+      {currentDisplayValue || <span className="placeholder">{placeholder}</span>}
     </div>
   );
 }
