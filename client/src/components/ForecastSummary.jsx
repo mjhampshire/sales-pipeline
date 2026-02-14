@@ -36,9 +36,10 @@ const CHART_COLORS = {
 
 export default function ForecastSummary({ deals, stages }) {
   // Filter deals with valid values and calculate weighted forecast
+  // Only include deals with 'active' status
   const validDeals = useMemo(() => {
     return deals
-      .filter(d => d.deal_value != null && d.deal_stage_probability != null)
+      .filter(d => d.status === 'active' && d.deal_value != null && d.deal_stage_probability != null)
       .map(d => ({
         ...d,
         weighted_forecast: d.deal_value * (d.deal_stage_probability / 100)
