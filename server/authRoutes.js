@@ -12,9 +12,9 @@ const {
 const router = express.Router();
 
 // Check if setup is needed (no users exist)
-router.get('/setup-status', (req, res) => {
+router.get('/setup-status', async (req, res) => {
   try {
-    const userCount = queries.getUserCount();
+    const userCount = await queries.getUserCount();
     res.json({ needsSetup: userCount === 0 });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -24,7 +24,7 @@ router.get('/setup-status', (req, res) => {
 // First-time admin setup (only works when no users exist)
 router.post('/setup', async (req, res) => {
   try {
-    const userCount = queries.getUserCount();
+    const userCount = await queries.getUserCount();
     if (userCount > 0) {
       return res.status(400).json({ error: 'Setup already completed' });
     }
@@ -39,11 +39,11 @@ router.post('/setup', async (req, res) => {
     }
 
     const passwordHash = await hashPassword(password);
-    const result = queries.createUser(email, passwordHash, 'admin', 0);
-    const user = queries.getUserById(result.lastInsertRowid);
+    const result = await queries.createUser(email, passwordHash, 'admin', 0);
+    const user = await queries.getUserById(result.lastInsertRowid);
 
     const token = generateToken(user);
-    queries.updateUserLastLogin(user.id);
+    await queries.updateUserLastLogin(user.id);
 
     res.status(201).json({
       token,
@@ -70,7 +70,7 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ error: 'Email and password required' });
     }
 
-    const user = queries.getUserByEmail(email);
+    const user = await queries.getUserByEmail(email);
     if (!user) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
@@ -85,7 +85,7 @@ router.post('/login', async (req, res) => {
     }
 
     const token = generateToken(user);
-    queries.updateUserLastLogin(user.id);
+    await queries.updateUserLastLogin(user.id);
 
     res.json({
       token,
@@ -102,9 +102,9 @@ router.post('/login', async (req, res) => {
 });
 
 // Get current user (requires token)
-router.get('/me', verifyToken, (req, res) => {
+router.get('/me', verifyToken, async (req, res) => {
   try {
-    const user = queries.getUserById(req.user.id);
+    const user = await queries.getUserById(req.user.id);
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
@@ -129,7 +129,7 @@ router.post('/change-password', verifyToken, async (req, res) => {
       return res.status(400).json({ error: 'New password must be at least 8 characters' });
     }
 
-    const user = queries.getUserByEmail(req.user.email);
+    const user = await queries.getUserByEmail(req.user.email);
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
@@ -147,10 +147,10 @@ router.post('/change-password', verifyToken, async (req, res) => {
     }
 
     const passwordHash = await hashPassword(newPassword);
-    queries.updateUserPassword(user.id, passwordHash, 0);
+    await queries.updateUserPassword(user.id, passwordHash, 0);
 
     // Generate new token with updated info
-    const updatedUser = queries.getUserById(user.id);
+    const updatedUser = await queries.getUserById(user.id);
     const token = generateToken(updatedUser);
 
     res.json({
@@ -171,9 +171,9 @@ router.post('/change-password', verifyToken, async (req, res) => {
 // ============ USER MANAGEMENT (Admin Only) ============
 
 // Get all users
-router.get('/users', verifyToken, requireAdmin, (req, res) => {
+router.get('/users', verifyToken, requireAdmin, async (req, res) => {
   try {
-    const users = queries.getAllUsers();
+    const users = await queries.getAllUsers();
     res.json(users);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -196,8 +196,8 @@ router.post('/users', verifyToken, requireAdmin, async (req, res) => {
     const tempPassword = generateTempPassword();
     const passwordHash = await hashPassword(tempPassword);
 
-    const result = queries.createUser(email, passwordHash, role, 1); // must_change_password = 1
-    const user = queries.getUserById(result.lastInsertRowid);
+    const result = await queries.createUser(email, passwordHash, role, 1); // must_change_password = 1
+    const user = await queries.getUserById(result.lastInsertRowid);
 
     res.status(201).json({
       user: {
@@ -219,7 +219,7 @@ router.post('/users', verifyToken, requireAdmin, async (req, res) => {
 });
 
 // Disable user
-router.put('/users/:id/disable', verifyToken, requireAdmin, (req, res) => {
+router.put('/users/:id/disable', verifyToken, requireAdmin, async (req, res) => {
   try {
     const userId = parseInt(req.params.id);
 
@@ -228,12 +228,12 @@ router.put('/users/:id/disable', verifyToken, requireAdmin, (req, res) => {
       return res.status(400).json({ error: 'Cannot disable your own account' });
     }
 
-    const user = queries.getUserById(userId);
+    const user = await queries.getUserById(userId);
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    queries.disableUser(userId);
+    await queries.disableUser(userId);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -241,16 +241,16 @@ router.put('/users/:id/disable', verifyToken, requireAdmin, (req, res) => {
 });
 
 // Enable user
-router.put('/users/:id/enable', verifyToken, requireAdmin, (req, res) => {
+router.put('/users/:id/enable', verifyToken, requireAdmin, async (req, res) => {
   try {
     const userId = parseInt(req.params.id);
-    const user = queries.getUserById(userId);
+    const user = await queries.getUserById(userId);
 
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    queries.enableUser(userId);
+    await queries.enableUser(userId);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -261,7 +261,7 @@ router.put('/users/:id/enable', verifyToken, requireAdmin, (req, res) => {
 router.post('/users/:id/reset-password', verifyToken, requireAdmin, async (req, res) => {
   try {
     const userId = parseInt(req.params.id);
-    const user = queries.getUserById(userId);
+    const user = await queries.getUserById(userId);
 
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
@@ -270,7 +270,7 @@ router.post('/users/:id/reset-password', verifyToken, requireAdmin, async (req, 
     const tempPassword = generateTempPassword();
     const passwordHash = await hashPassword(tempPassword);
 
-    queries.updateUserPassword(userId, passwordHash, 1); // must_change_password = 1
+    await queries.updateUserPassword(userId, passwordHash, 1); // must_change_password = 1
 
     res.json({ tempPassword });
   } catch (err) {
@@ -279,7 +279,7 @@ router.post('/users/:id/reset-password', verifyToken, requireAdmin, async (req, 
 });
 
 // Delete user
-router.delete('/users/:id', verifyToken, requireAdmin, (req, res) => {
+router.delete('/users/:id', verifyToken, requireAdmin, async (req, res) => {
   try {
     const userId = parseInt(req.params.id);
 
@@ -288,20 +288,20 @@ router.delete('/users/:id', verifyToken, requireAdmin, (req, res) => {
       return res.status(400).json({ error: 'Cannot delete your own account' });
     }
 
-    const user = queries.getUserById(userId);
+    const user = await queries.getUserById(userId);
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
 
     // Cannot delete last admin
     if (user.role === 'admin') {
-      const adminCount = queries.getAdminCount();
+      const adminCount = await queries.getAdminCount();
       if (adminCount <= 1) {
         return res.status(400).json({ error: 'Cannot delete the last admin account' });
       }
     }
 
-    queries.deleteUser(userId);
+    await queries.deleteUser(userId);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });

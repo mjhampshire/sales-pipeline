@@ -17,7 +17,7 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 // Auto-close month check function
-function checkAndAutoCloseMonth() {
+async function checkAndAutoCloseMonth() {
   const now = new Date();
   const currentDay = now.getDate();
 
@@ -36,7 +36,8 @@ function checkAndAutoCloseMonth() {
   }
 
   // Check if already closed
-  if (queries.isMonthClosed(priorMonth, priorYear)) {
+  const alreadyClosed = await queries.isMonthClosed(priorMonth, priorYear);
+  if (alreadyClosed) {
     console.log(`Month ${priorMonth}/${priorYear} already closed, skipping auto-close`);
     return;
   }
@@ -45,7 +46,7 @@ function checkAndAutoCloseMonth() {
 
   try {
     // Get active deals for snapshot
-    const activeDeals = queries.getActiveDealsForForecast();
+    const activeDeals = await queries.getActiveDealsForForecast();
 
     // Calculate weighted forecast totals
     let totalWeightedForecast = 0;
@@ -74,7 +75,7 @@ function checkAndAutoCloseMonth() {
     });
 
     // Create snapshot
-    const snapshotResult = queries.createSnapshot(
+    const snapshotResult = await queries.createSnapshot(
       priorMonth,
       priorYear,
       totalWeightedForecast,
@@ -83,21 +84,22 @@ function checkAndAutoCloseMonth() {
     const snapshotId = snapshotResult.lastInsertRowid;
 
     // Create breakdowns
-    Object.entries(productBreakdown).forEach(([name, data]) => {
-      queries.createSnapshotBreakdown(snapshotId, 'product', name, data.count, data.value);
-    });
+    for (const [name, data] of Object.entries(productBreakdown)) {
+      await queries.createSnapshotBreakdown(snapshotId, 'product', name, data.count, data.value);
+    }
 
-    Object.entries(partnerBreakdown).forEach(([name, data]) => {
-      queries.createSnapshotBreakdown(snapshotId, 'partner', name, data.count, data.value);
-    });
+    for (const [name, data] of Object.entries(partnerBreakdown)) {
+      await queries.createSnapshotBreakdown(snapshotId, 'partner', name, data.count, data.value);
+    }
 
     // Archive won/lost deals
-    const wonLostDeals = queries.getWonLostDeals();
-    wonLostDeals.forEach(deal => {
-      queries.createArchivedDeal({
+    const wonLostDeals = await queries.getWonLostDeals();
+    for (const deal of wonLostDeals) {
+      await queries.createArchivedDeal({
         original_deal_id: deal.id,
         deal_name: deal.deal_name,
         contact_name: deal.contact_name,
+        source_name: deal.source_name,
         partner_name: deal.partner_name,
         platform_name: deal.platform_name,
         product_name: deal.product_name,
@@ -111,11 +113,11 @@ function checkAndAutoCloseMonth() {
         archived_for_month: priorMonth,
         archived_for_year: priorYear
       });
-      queries.deleteDeal(deal.id);
-    });
+      await queries.deleteDeal(deal.id);
+    }
 
     // Log the close
-    queries.logClosedMonth(priorMonth, priorYear, 'auto');
+    await queries.logClosedMonth(priorMonth, priorYear, 'auto');
     console.log(`Successfully auto-closed month ${priorMonth}/${priorYear}`);
   } catch (err) {
     console.error('Auto-close failed:', err);

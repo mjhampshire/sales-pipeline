@@ -6,10 +6,10 @@ const router = express.Router();
 // ============ DEALS ============
 
 // Get all deals
-router.get('/deals', (req, res) => {
+router.get('/deals', async (req, res) => {
   try {
     const { sort = 'id', order = 'asc' } = req.query;
-    const deals = queries.getAllDeals(sort, order);
+    const deals = await queries.getAllDeals(sort, order);
     res.json(deals);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -17,7 +17,7 @@ router.get('/deals', (req, res) => {
 });
 
 // Create deal
-router.post('/deals', (req, res) => {
+router.post('/deals', async (req, res) => {
   try {
     const data = {
       deal_name: req.body.deal_name || 'New Deal',
@@ -37,8 +37,8 @@ router.post('/deals', (req, res) => {
       is_priority: req.body.is_priority || 0,
       row_color: req.body.row_color || null
     };
-    const result = queries.createDeal(data);
-    const deal = queries.getDealById(result.lastInsertRowid);
+    const result = await queries.createDeal(data);
+    const deal = await queries.getDealById(result.lastInsertRowid);
     res.status(201).json(deal);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -46,9 +46,9 @@ router.post('/deals', (req, res) => {
 });
 
 // Update deal
-router.put('/deals/:id', (req, res) => {
+router.put('/deals/:id', async (req, res) => {
   try {
-    const existing = queries.getDealById(req.params.id);
+    const existing = await queries.getDealById(req.params.id);
     if (!existing) {
       return res.status(404).json({ error: 'Deal not found' });
     }
@@ -75,7 +75,7 @@ router.put('/deals/:id', (req, res) => {
 
     // Validation: Deals at 40%+ probability must have close date and deal value
     if (data.deal_stage_id) {
-      const stage = queries.getStageById(data.deal_stage_id);
+      const stage = await queries.getStageById(data.deal_stage_id);
       if (stage && stage.probability >= 40) {
         const hasCloseDate = data.close_month && data.close_year;
         const hasDealValue = data.deal_value != null && data.deal_value !== '';
@@ -93,8 +93,8 @@ router.put('/deals/:id', (req, res) => {
       }
     }
 
-    queries.updateDeal(data);
-    const deal = queries.getDealById(req.params.id);
+    await queries.updateDeal(data);
+    const deal = await queries.getDealById(req.params.id);
     res.json(deal);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -102,14 +102,14 @@ router.put('/deals/:id', (req, res) => {
 });
 
 // Delete deal
-router.delete('/deals/:id', (req, res) => {
+router.delete('/deals/:id', async (req, res) => {
   try {
     // Check if deal exists first
-    const existing = queries.getDealById(req.params.id);
+    const existing = await queries.getDealById(req.params.id);
     if (!existing) {
       return res.status(404).json({ error: 'Deal not found' });
     }
-    queries.deleteDeal(req.params.id);
+    await queries.deleteDeal(req.params.id);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -119,9 +119,9 @@ router.delete('/deals/:id', (req, res) => {
 // ============ DEAL STAGES ============
 
 // Get all stages
-router.get('/stages', (req, res) => {
+router.get('/stages', async (req, res) => {
   try {
-    const stages = queries.getAllStages();
+    const stages = await queries.getAllStages();
     res.json(stages);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -129,10 +129,10 @@ router.get('/stages', (req, res) => {
 });
 
 // Create stage
-router.post('/stages', (req, res) => {
+router.post('/stages', async (req, res) => {
   try {
     const { name, probability = 0, sort_order = 0 } = req.body;
-    const result = queries.createStage(name, probability, sort_order);
+    const result = await queries.createStage(name, probability, sort_order);
     res.status(201).json({ id: result.lastInsertRowid, name, probability, sort_order });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -140,10 +140,10 @@ router.post('/stages', (req, res) => {
 });
 
 // Update stage
-router.put('/stages/:id', (req, res) => {
+router.put('/stages/:id', async (req, res) => {
   try {
     const { name, probability, sort_order } = req.body;
-    queries.updateStage(name, probability, sort_order, req.params.id);
+    await queries.updateStage(name, probability, sort_order, req.params.id);
     res.json({ id: parseInt(req.params.id), name, probability, sort_order });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -151,9 +151,9 @@ router.put('/stages/:id', (req, res) => {
 });
 
 // Delete stage
-router.delete('/stages/:id', (req, res) => {
+router.delete('/stages/:id', async (req, res) => {
   try {
-    queries.deleteStage(req.params.id);
+    await queries.deleteStage(req.params.id);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -163,13 +163,13 @@ router.delete('/stages/:id', (req, res) => {
 // ============ LIST ITEMS ============
 
 // Get list items by type
-router.get('/lists/:type', (req, res) => {
+router.get('/lists/:type', async (req, res) => {
   try {
     const validTypes = ['partner', 'platform', 'product', 'source'];
     if (!validTypes.includes(req.params.type)) {
       return res.status(400).json({ error: 'Invalid list type' });
     }
-    const items = queries.getListItems(req.params.type);
+    const items = await queries.getListItems(req.params.type);
     res.json(items);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -177,14 +177,14 @@ router.get('/lists/:type', (req, res) => {
 });
 
 // Create list item
-router.post('/lists/:type', (req, res) => {
+router.post('/lists/:type', async (req, res) => {
   try {
     const validTypes = ['partner', 'platform', 'product', 'source'];
     if (!validTypes.includes(req.params.type)) {
       return res.status(400).json({ error: 'Invalid list type' });
     }
     const { value, sort_order = 0 } = req.body;
-    const result = queries.createListItem(req.params.type, value, sort_order);
+    const result = await queries.createListItem(req.params.type, value, sort_order);
     res.status(201).json({ id: result.lastInsertRowid, list_type: req.params.type, value, sort_order });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -192,10 +192,10 @@ router.post('/lists/:type', (req, res) => {
 });
 
 // Update list item
-router.put('/lists/:type/:id', (req, res) => {
+router.put('/lists/:type/:id', async (req, res) => {
   try {
     const { value, sort_order } = req.body;
-    queries.updateListItem(value, sort_order, req.params.id);
+    await queries.updateListItem(value, sort_order, req.params.id);
     res.json({ id: parseInt(req.params.id), list_type: req.params.type, value, sort_order });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -203,9 +203,9 @@ router.put('/lists/:type/:id', (req, res) => {
 });
 
 // Delete list item
-router.delete('/lists/:type/:id', (req, res) => {
+router.delete('/lists/:type/:id', async (req, res) => {
   try {
-    queries.deleteListItem(req.params.id);
+    await queries.deleteListItem(req.params.id);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -215,14 +215,14 @@ router.delete('/lists/:type/:id', (req, res) => {
 // ============ MONTHLY SNAPSHOTS ============
 
 // Get all monthly snapshots with breakdowns
-router.get('/snapshots', (req, res) => {
+router.get('/snapshots', async (req, res) => {
   try {
-    const snapshots = queries.getAllSnapshots();
+    const snapshots = await queries.getAllSnapshots();
     // Attach breakdowns to each snapshot
-    const snapshotsWithBreakdowns = snapshots.map(snapshot => ({
+    const snapshotsWithBreakdowns = await Promise.all(snapshots.map(async snapshot => ({
       ...snapshot,
-      breakdowns: queries.getSnapshotBreakdowns(snapshot.id)
-    }));
+      breakdowns: await queries.getSnapshotBreakdowns(snapshot.id)
+    })));
     res.json(snapshotsWithBreakdowns);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -232,9 +232,9 @@ router.get('/snapshots', (req, res) => {
 // ============ ARCHIVED DEALS ============
 
 // Get archived won deals
-router.get('/archived/won', (req, res) => {
+router.get('/archived/won', async (req, res) => {
   try {
-    const deals = queries.getArchivedDeals('won');
+    const deals = await queries.getArchivedDeals('won');
     res.json(deals);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -242,9 +242,9 @@ router.get('/archived/won', (req, res) => {
 });
 
 // Get archived lost deals
-router.get('/archived/lost', (req, res) => {
+router.get('/archived/lost', async (req, res) => {
   try {
-    const deals = queries.getArchivedDeals('lost');
+    const deals = await queries.getArchivedDeals('lost');
     res.json(deals);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -252,7 +252,7 @@ router.get('/archived/lost', (req, res) => {
 });
 
 // Directly archive a deal (for CSV import of old won/lost deals)
-router.post('/archived', (req, res) => {
+router.post('/archived', async (req, res) => {
   try {
     const data = {
       original_deal_id: req.body.original_deal_id || null,
@@ -272,7 +272,7 @@ router.post('/archived', (req, res) => {
       archived_for_year: req.body.archived_for_year
     };
 
-    const result = queries.createArchivedDeal(data);
+    const result = await queries.createArchivedDeal(data);
     res.status(201).json({ id: result.lastInsertRowid, ...data });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -280,9 +280,9 @@ router.post('/archived', (req, res) => {
 });
 
 // Update archived deal
-router.put('/archived/:id', (req, res) => {
+router.put('/archived/:id', async (req, res) => {
   try {
-    const existing = queries.getArchivedDealById(req.params.id);
+    const existing = await queries.getArchivedDealById(req.params.id);
     if (!existing) {
       return res.status(404).json({ error: 'Archived deal not found' });
     }
@@ -304,8 +304,8 @@ router.put('/archived/:id', (req, res) => {
       notes: req.body.notes ?? existing.notes
     };
 
-    queries.updateArchivedDeal(data);
-    const updated = queries.getArchivedDealById(req.params.id);
+    await queries.updateArchivedDeal(data);
+    const updated = await queries.getArchivedDealById(req.params.id);
     res.json(updated);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -313,13 +313,13 @@ router.put('/archived/:id', (req, res) => {
 });
 
 // Delete archived deal
-router.delete('/archived/:id', (req, res) => {
+router.delete('/archived/:id', async (req, res) => {
   try {
-    const existing = queries.getArchivedDealById(req.params.id);
+    const existing = await queries.getArchivedDealById(req.params.id);
     if (!existing) {
       return res.status(404).json({ error: 'Archived deal not found' });
     }
-    queries.deleteArchivedDeal(req.params.id);
+    await queries.deleteArchivedDeal(req.params.id);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -327,9 +327,9 @@ router.delete('/archived/:id', (req, res) => {
 });
 
 // Restore archived deal back to active pipeline
-router.post('/archived/:id/restore', (req, res) => {
+router.post('/archived/:id/restore', async (req, res) => {
   try {
-    const archived = queries.getArchivedDealById(req.params.id);
+    const archived = await queries.getArchivedDealById(req.params.id);
     if (!archived) {
       return res.status(404).json({ error: 'Archived deal not found' });
     }
@@ -351,11 +351,11 @@ router.post('/archived/:id/restore', (req, res) => {
       next_step_date: null
     };
 
-    const result = queries.createDeal(dealData);
-    const newDeal = queries.getDealById(result.lastInsertRowid);
+    const result = await queries.createDeal(dealData);
+    const newDeal = await queries.getDealById(result.lastInsertRowid);
 
     // Delete from archived
-    queries.deleteArchivedDeal(req.params.id);
+    await queries.deleteArchivedDeal(req.params.id);
 
     res.json(newDeal);
   } catch (err) {
@@ -366,7 +366,7 @@ router.post('/archived/:id/restore', (req, res) => {
 // ============ CLOSE MONTH ============
 
 // Get close month status
-router.get('/close-month/status', (req, res) => {
+router.get('/close-month/status', async (req, res) => {
   try {
     const now = new Date();
     const currentMonth = now.getMonth() + 1;
@@ -381,7 +381,7 @@ router.get('/close-month/status', (req, res) => {
     }
 
     // Check if prior month is closed
-    const priorMonthClosed = queries.isMonthClosed(priorMonth, priorYear);
+    const priorMonthClosed = await queries.isMonthClosed(priorMonth, priorYear);
 
     // Calculate days until end of current month
     const lastDayOfMonth = new Date(currentYear, currentMonth, 0).getDate();
@@ -405,7 +405,7 @@ router.get('/close-month/status', (req, res) => {
 });
 
 // Update prior month snapshot (recalculate from current pipeline)
-router.post('/update-prior-month', (req, res) => {
+router.post('/update-prior-month', async (req, res) => {
   try {
     // Calculate prior month
     const now = new Date();
@@ -420,7 +420,7 @@ router.post('/update-prior-month', (req, res) => {
     }
 
     // Check if snapshot exists for prior month
-    const existingSnapshot = queries.getSnapshotByMonth(priorMonth, priorYear);
+    const existingSnapshot = await queries.getSnapshotByMonth(priorMonth, priorYear);
     if (!existingSnapshot) {
       return res.status(400).json({
         error: `No snapshot exists for ${priorMonth}/${priorYear}. Use Close Month first.`
@@ -428,10 +428,10 @@ router.post('/update-prior-month', (req, res) => {
     }
 
     // Delete existing breakdowns for this snapshot
-    queries.deleteSnapshotBreakdowns(existingSnapshot.id);
+    await queries.deleteSnapshotBreakdowns(existingSnapshot.id);
 
     // Get active deals for forecast calculation (excluding won/lost)
-    const activeDeals = queries.getActiveDealsForForecast();
+    const activeDeals = await queries.getActiveDealsForForecast();
 
     // Calculate weighted forecast totals
     let totalWeightedForecast = 0;
@@ -462,16 +462,16 @@ router.post('/update-prior-month', (req, res) => {
     });
 
     // Update snapshot totals
-    queries.updateSnapshot(existingSnapshot.id, totalWeightedForecast, activeDeals.length);
+    await queries.updateSnapshot(existingSnapshot.id, totalWeightedForecast, activeDeals.length);
 
     // Create new breakdowns
-    Object.entries(productBreakdown).forEach(([name, data]) => {
-      queries.createSnapshotBreakdown(existingSnapshot.id, 'product', name, data.count, data.value);
-    });
+    for (const [name, data] of Object.entries(productBreakdown)) {
+      await queries.createSnapshotBreakdown(existingSnapshot.id, 'product', name, data.count, data.value);
+    }
 
-    Object.entries(partnerBreakdown).forEach(([name, data]) => {
-      queries.createSnapshotBreakdown(existingSnapshot.id, 'partner', name, data.count, data.value);
-    });
+    for (const [name, data] of Object.entries(partnerBreakdown)) {
+      await queries.createSnapshotBreakdown(existingSnapshot.id, 'partner', name, data.count, data.value);
+    }
 
     res.json({
       success: true,
@@ -486,7 +486,7 @@ router.post('/update-prior-month', (req, res) => {
 });
 
 // Close prior month
-router.post('/close-month', (req, res) => {
+router.post('/close-month', async (req, res) => {
   try {
     const closedBy = req.body.closedBy || 'manual';
 
@@ -503,11 +503,11 @@ router.post('/close-month', (req, res) => {
     }
 
     // Check if already closed - if so, we'll update the existing snapshot
-    const alreadyClosed = queries.isMonthClosed(priorMonth, priorYear);
-    const existingSnapshot = queries.getSnapshotByMonth(priorMonth, priorYear);
+    const alreadyClosed = await queries.isMonthClosed(priorMonth, priorYear);
+    const existingSnapshot = await queries.getSnapshotByMonth(priorMonth, priorYear);
 
     // Get active deals for snapshot (excluding won/lost)
-    const activeDeals = queries.getActiveDealsForForecast();
+    const activeDeals = await queries.getActiveDealsForForecast();
 
     // Calculate weighted forecast totals
     let totalWeightedForecast = 0;
@@ -541,12 +541,12 @@ router.post('/close-month', (req, res) => {
     let snapshotId;
     if (existingSnapshot) {
       // Update existing snapshot
-      queries.deleteSnapshotBreakdowns(existingSnapshot.id);
-      queries.updateSnapshot(existingSnapshot.id, totalWeightedForecast, activeDeals.length);
+      await queries.deleteSnapshotBreakdowns(existingSnapshot.id);
+      await queries.updateSnapshot(existingSnapshot.id, totalWeightedForecast, activeDeals.length);
       snapshotId = existingSnapshot.id;
     } else {
       // Create new snapshot
-      const snapshotResult = queries.createSnapshot(
+      const snapshotResult = await queries.createSnapshot(
         priorMonth,
         priorYear,
         totalWeightedForecast,
@@ -556,20 +556,20 @@ router.post('/close-month', (req, res) => {
     }
 
     // Create breakdowns
-    Object.entries(productBreakdown).forEach(([name, data]) => {
-      queries.createSnapshotBreakdown(snapshotId, 'product', name, data.count, data.value);
-    });
+    for (const [name, data] of Object.entries(productBreakdown)) {
+      await queries.createSnapshotBreakdown(snapshotId, 'product', name, data.count, data.value);
+    }
 
-    Object.entries(partnerBreakdown).forEach(([name, data]) => {
-      queries.createSnapshotBreakdown(snapshotId, 'partner', name, data.count, data.value);
-    });
+    for (const [name, data] of Object.entries(partnerBreakdown)) {
+      await queries.createSnapshotBreakdown(snapshotId, 'partner', name, data.count, data.value);
+    }
 
     // Archive won/lost deals
-    const wonLostDeals = queries.getWonLostDeals();
+    const wonLostDeals = await queries.getWonLostDeals();
     let archivedCount = 0;
 
-    wonLostDeals.forEach(deal => {
-      queries.createArchivedDeal({
+    for (const deal of wonLostDeals) {
+      await queries.createArchivedDeal({
         original_deal_id: deal.id,
         deal_name: deal.deal_name,
         contact_name: deal.contact_name,
@@ -589,13 +589,13 @@ router.post('/close-month', (req, res) => {
       });
 
       // Delete from active deals
-      queries.deleteDeal(deal.id);
+      await queries.deleteDeal(deal.id);
       archivedCount++;
-    });
+    }
 
     // Log the close (only if not already logged)
     if (!alreadyClosed) {
-      queries.logClosedMonth(priorMonth, priorYear, closedBy);
+      await queries.logClosedMonth(priorMonth, priorYear, closedBy);
     }
 
     res.json({
@@ -615,9 +615,9 @@ router.post('/close-month', (req, res) => {
 // ============ LEADS ============
 
 // Get all leads
-router.get('/leads', (req, res) => {
+router.get('/leads', async (req, res) => {
   try {
-    const leads = queries.getAllLeads();
+    const leads = await queries.getAllLeads();
     res.json(leads);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -625,7 +625,7 @@ router.get('/leads', (req, res) => {
 });
 
 // Create lead (webhook endpoint for website form or manual entry)
-router.post('/leads', (req, res) => {
+router.post('/leads', async (req, res) => {
   try {
     const data = {
       firstname: req.body.firstname || req.body.firstName || null,
@@ -638,8 +638,8 @@ router.post('/leads', (req, res) => {
       received_date: req.body.received_date || new Date().toISOString().split('T')[0]
     };
 
-    const result = queries.createLead(data);
-    const lead = queries.getLeadById(result.lastInsertRowid);
+    const result = await queries.createLead(data);
+    const lead = await queries.getLeadById(result.lastInsertRowid);
     res.status(201).json(lead);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -647,9 +647,9 @@ router.post('/leads', (req, res) => {
 });
 
 // Update lead status (not_converted, new, etc.)
-router.put('/leads/:id/status', (req, res) => {
+router.put('/leads/:id/status', async (req, res) => {
   try {
-    const lead = queries.getLeadById(req.params.id);
+    const lead = await queries.getLeadById(req.params.id);
     if (!lead) {
       return res.status(404).json({ error: 'Lead not found' });
     }
@@ -659,8 +659,8 @@ router.put('/leads/:id/status', (req, res) => {
       return res.status(400).json({ error: 'Invalid status' });
     }
 
-    queries.updateLeadStatus(req.params.id, status, lead.converted_deal_id);
-    const updated = queries.getLeadById(req.params.id);
+    await queries.updateLeadStatus(req.params.id, status, lead.converted_deal_id);
+    const updated = await queries.getLeadById(req.params.id);
     res.json(updated);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -668,13 +668,13 @@ router.put('/leads/:id/status', (req, res) => {
 });
 
 // Delete lead
-router.delete('/leads/:id', (req, res) => {
+router.delete('/leads/:id', async (req, res) => {
   try {
-    const existing = queries.getLeadById(req.params.id);
+    const existing = await queries.getLeadById(req.params.id);
     if (!existing) {
       return res.status(404).json({ error: 'Lead not found' });
     }
-    queries.deleteLead(req.params.id);
+    await queries.deleteLead(req.params.id);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -682,13 +682,13 @@ router.delete('/leads/:id', (req, res) => {
 });
 
 // Check if deal name exists
-router.get('/deals/check-name', (req, res) => {
+router.get('/deals/check-name', async (req, res) => {
   try {
     const { name } = req.query;
     if (!name) {
       return res.status(400).json({ error: 'Name parameter required' });
     }
-    const deals = queries.getAllDeals();
+    const deals = await queries.getAllDeals();
     const exists = deals.some(d => d.deal_name.toLowerCase().trim() === name.toLowerCase().trim());
     res.json({ exists });
   } catch (err) {
@@ -697,9 +697,9 @@ router.get('/deals/check-name', (req, res) => {
 });
 
 // Convert lead to deal
-router.post('/leads/:id/convert', (req, res) => {
+router.post('/leads/:id/convert', async (req, res) => {
   try {
-    const lead = queries.getLeadById(req.params.id);
+    const lead = await queries.getLeadById(req.params.id);
     if (!lead) {
       return res.status(404).json({ error: 'Lead not found' });
     }
@@ -728,13 +728,13 @@ router.post('/leads/:id/convert', (req, res) => {
       next_step_date: null
     };
 
-    const result = queries.createDeal(dealData);
-    const deal = queries.getDealById(result.lastInsertRowid);
+    const result = await queries.createDeal(dealData);
+    const deal = await queries.getDealById(result.lastInsertRowid);
 
     // Update lead status
-    queries.updateLeadStatus(req.params.id, 'converted', deal.id);
+    await queries.updateLeadStatus(req.params.id, 'converted', deal.id);
 
-    res.json({ lead: queries.getLeadById(req.params.id), deal });
+    res.json({ lead: await queries.getLeadById(req.params.id), deal });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
