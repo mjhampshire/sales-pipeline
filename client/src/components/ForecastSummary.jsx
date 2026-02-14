@@ -217,7 +217,8 @@ export default function ForecastSummary({ deals, stages }) {
   );
 
   const totalForecast = validDeals.reduce((sum, d) => sum + d.weighted_forecast, 0);
-  const totalDeals = validDeals.length;
+  // Count all deals with 'active' status (not just those with values)
+  const totalActiveDeals = deals.filter(d => d.status === 'active').length;
 
   return (
     <div className="forecast-summary">
@@ -228,7 +229,7 @@ export default function ForecastSummary({ deals, stages }) {
         </div>
         <div className="forecast-stat">
           <span className="stat-label">Active Deals</span>
-          <span className="stat-value">{totalDeals}</span>
+          <span className="stat-value">{totalActiveDeals}</span>
         </div>
       </div>
       <div className="chart-grid">
