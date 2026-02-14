@@ -67,6 +67,20 @@ async function initDb() {
     // Column already exists, ignore
   }
 
+  // Add is_priority column if it doesn't exist (migration for existing databases)
+  try {
+    db.run('ALTER TABLE deals ADD COLUMN is_priority INTEGER DEFAULT 0');
+  } catch (e) {
+    // Column already exists, ignore
+  }
+
+  // Add row_color column if it doesn't exist (migration for existing databases)
+  try {
+    db.run('ALTER TABLE deals ADD COLUMN row_color TEXT');
+  } catch (e) {
+    // Column already exists, ignore
+  }
+
   // Monthly snapshot summary
   db.run(`
     CREATE TABLE IF NOT EXISTS monthly_snapshots (
@@ -157,6 +171,20 @@ async function initDb() {
       closed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       closed_by TEXT DEFAULT 'manual',
       UNIQUE(closed_month, closed_year)
+    )
+  `);
+
+  // Users table for authentication
+  db.run(`
+    CREATE TABLE IF NOT EXISTS users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      email TEXT NOT NULL UNIQUE,
+      password_hash TEXT NOT NULL,
+      role TEXT NOT NULL DEFAULT 'user',
+      must_change_password INTEGER DEFAULT 0,
+      is_disabled INTEGER DEFAULT 0,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      last_login_at TIMESTAMP
     )
   `);
 
@@ -287,6 +315,14 @@ const queries = {
         // Sort alphabetically by partner name
         orderByClause = `p.value ${sortOrder}`;
         break;
+      case 'priority':
+        // Sort by priority flag (priority items first when desc)
+        orderByClause = `d.is_priority ${sortOrder}`;
+        break;
+      case 'color':
+        // Sort by row color (nulls last)
+        orderByClause = `CASE WHEN d.row_color IS NULL THEN 1 ELSE 0 END, d.row_color ${sortOrder}`;
+        break;
       default:
         // Standard columns on deals table
         const validColumns = ['id', 'deal_name', 'contact_name', 'status', 'open_date', 'deal_value', 'next_step_date', 'created_at'];
@@ -332,9 +368,9 @@ const queries = {
   `, [id]),
 
   createDeal: (data) => run(`
-    INSERT INTO deals (deal_name, contact_name, source_id, partner_id, platform_id, product_id, deal_stage_id, status, open_date, close_month, close_year, deal_value, notes, next_step_date)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `, [data.deal_name, data.contact_name, data.source_id, data.partner_id, data.platform_id, data.product_id, data.deal_stage_id, data.status, data.open_date, data.close_month, data.close_year, data.deal_value, data.notes, data.next_step_date]),
+    INSERT INTO deals (deal_name, contact_name, source_id, partner_id, platform_id, product_id, deal_stage_id, status, open_date, close_month, close_year, deal_value, notes, next_step_date, is_priority, row_color)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `, [data.deal_name, data.contact_name, data.source_id, data.partner_id, data.platform_id, data.product_id, data.deal_stage_id, data.status, data.open_date, data.close_month, data.close_year, data.deal_value, data.notes, data.next_step_date, data.is_priority || 0, data.row_color || null]),
 
   updateDeal: (data) => run(`
     UPDATE deals SET
@@ -352,9 +388,11 @@ const queries = {
       deal_value = ?,
       notes = ?,
       next_step_date = ?,
+      is_priority = ?,
+      row_color = ?,
       updated_at = CURRENT_TIMESTAMP
     WHERE id = ?
-  `, [data.deal_name, data.contact_name, data.source_id, data.partner_id, data.platform_id, data.product_id, data.deal_stage_id, data.status, data.open_date, data.close_month, data.close_year, data.deal_value, data.notes, data.next_step_date, data.id]),
+  `, [data.deal_name, data.contact_name, data.source_id, data.partner_id, data.platform_id, data.product_id, data.deal_stage_id, data.status, data.open_date, data.close_month, data.close_year, data.deal_value, data.notes, data.next_step_date, data.is_priority, data.row_color, data.id]),
 
   deleteDeal: (id) => run('DELETE FROM deals WHERE id = ?', [id]),
 
@@ -529,7 +567,45 @@ const queries = {
     LEFT JOIN list_items pl ON d.platform_id = pl.id
     LEFT JOIN list_items pr ON d.product_id = pr.id
     WHERE d.status NOT IN ('won', 'lost')
-  `)
+  `),
+
+  // User Management
+  getUserByEmail: (email) => queryOne('SELECT * FROM users WHERE email = ?', [email]),
+
+  getUserById: (id) => queryOne('SELECT id, email, role, must_change_password, is_disabled, created_at, last_login_at FROM users WHERE id = ?', [id]),
+
+  getAllUsers: () => queryAll('SELECT id, email, role, must_change_password, is_disabled, created_at, last_login_at FROM users ORDER BY created_at DESC'),
+
+  getUserCount: () => {
+    const result = queryOne('SELECT COUNT(*) as count FROM users');
+    return result ? result.count : 0;
+  },
+
+  getAdminCount: () => {
+    const result = queryOne("SELECT COUNT(*) as count FROM users WHERE role = 'admin' AND is_disabled = 0");
+    return result ? result.count : 0;
+  },
+
+  createUser: (email, passwordHash, role = 'user', mustChangePassword = 0) => run(
+    'INSERT INTO users (email, password_hash, role, must_change_password) VALUES (?, ?, ?, ?)',
+    [email, passwordHash, role, mustChangePassword]
+  ),
+
+  updateUserPassword: (id, passwordHash, mustChangePassword = 0) => run(
+    'UPDATE users SET password_hash = ?, must_change_password = ? WHERE id = ?',
+    [passwordHash, mustChangePassword, id]
+  ),
+
+  updateUserLastLogin: (id) => run(
+    'UPDATE users SET last_login_at = CURRENT_TIMESTAMP WHERE id = ?',
+    [id]
+  ),
+
+  disableUser: (id) => run('UPDATE users SET is_disabled = 1 WHERE id = ?', [id]),
+
+  enableUser: (id) => run('UPDATE users SET is_disabled = 0 WHERE id = ?', [id]),
+
+  deleteUser: (id) => run('DELETE FROM users WHERE id = ?', [id])
 };
 
 module.exports = { initDb, queries };

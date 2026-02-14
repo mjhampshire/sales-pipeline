@@ -1,6 +1,8 @@
 import DealRow from './DealRow';
 
 const COLUMNS = [
+  { key: 'priority', label: '', sortable: true, width: '30px' },
+  { key: 'color', label: '', sortable: true, width: '30px' },
   { key: 'deal_name', label: 'Deal Name' },
   { key: 'contact_name', label: 'Contact' },
   { key: 'source', label: 'Source', sortable: false },

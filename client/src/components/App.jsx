@@ -7,13 +7,21 @@ import LostDeals from './LostDeals';
 import Leads from './Leads';
 import SettingsModal from './SettingsModal';
 import ConfirmModal from './ConfirmModal';
-import ImportModal from './ImportModal';
 import WonConfirmModal from './WonConfirmModal';
 import LostConfirmModal from './LostConfirmModal';
 import CloseMonthModal from './CloseMonthModal';
+import LoginPage from './LoginPage';
+import ChangePasswordModal from './ChangePasswordModal';
 import * as api from '../api';
+import { getToken, setToken, setUser, removeToken, getUser, isAdmin as checkIsAdmin } from '../auth';
 
 export default function App() {
+  // Auth state
+  const [isAuthenticated, setIsAuthenticated] = useState(!!getToken());
+  const [user, setUserState] = useState(getUser());
+  const [authLoading, setAuthLoading] = useState(true);
+  const [showChangePassword, setShowChangePassword] = useState(false);
+
   const [deals, setDeals] = useState([]);
   const [stages, setStages] = useState([]);
   const [partners, setPartners] = useState([]);
@@ -21,7 +29,6 @@ export default function App() {
   const [products, setProducts] = useState([]);
   const [sources, setSources] = useState([]);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [importOpen, setImportOpen] = useState(false);
   const [sortConfig, setSortConfig] = useState({ key: 'id', order: 'asc' });
   const [currentView, setCurrentView] = useState('pipeline');
   const [loading, setLoading] = useState(true);
@@ -31,13 +38,70 @@ export default function App() {
   const [closeMonthStatus, setCloseMonthStatus] = useState(null);
   const [closeMonthModalOpen, setCloseMonthModalOpen] = useState(false);
 
+  const isAdmin = user?.role === 'admin';
+
+  // Check auth on mount
   useEffect(() => {
-    loadData();
-    loadCloseMonthStatus();
-    // Poll close month status every minute
-    const interval = setInterval(loadCloseMonthStatus, 60000);
-    return () => clearInterval(interval);
+    const checkAuth = async () => {
+      if (getToken()) {
+        try {
+          const userData = await api.getCurrentUser();
+          setUserState(userData);
+          setUser(userData);
+          setIsAuthenticated(true);
+          if (userData.mustChangePassword) {
+            setShowChangePassword(true);
+          }
+        } catch (err) {
+          // Token invalid, clear it
+          removeToken();
+          setIsAuthenticated(false);
+          setUserState(null);
+        }
+      }
+      setAuthLoading(false);
+    };
+    checkAuth();
   }, []);
+
+  useEffect(() => {
+    if (isAuthenticated && !showChangePassword) {
+      loadData();
+      loadCloseMonthStatus();
+      // Poll close month status every minute
+      const interval = setInterval(loadCloseMonthStatus, 60000);
+      return () => clearInterval(interval);
+    }
+  }, [isAuthenticated, showChangePassword]);
+
+  const handleLogin = (token, userData) => {
+    setToken(token);
+    setUser(userData);
+    setUserState(userData);
+    setIsAuthenticated(true);
+    if (userData.mustChangePassword) {
+      setShowChangePassword(true);
+    }
+  };
+
+  const handleLogout = () => {
+    removeToken();
+    setIsAuthenticated(false);
+    setUserState(null);
+    setDeals([]);
+    setStages([]);
+    setPartners([]);
+    setPlatforms([]);
+    setProducts([]);
+    setSources([]);
+  };
+
+  const handlePasswordChanged = (token, userData) => {
+    setToken(token);
+    setUser(userData);
+    setUserState(userData);
+    setShowChangePassword(false);
+  };
 
   useEffect(() => {
     if (!loading) {
@@ -326,6 +390,29 @@ export default function App() {
     loadDeals();
   };
 
+  // Show loading while checking auth
+  if (authLoading) {
+    return <div className="loading">Loading...</div>;
+  }
+
+  // Show login page if not authenticated
+  if (!isAuthenticated) {
+    return <LoginPage onLogin={handleLogin} />;
+  }
+
+  // Show change password modal if required
+  if (showChangePassword) {
+    return (
+      <div className="app">
+        <ChangePasswordModal
+          isOpen={true}
+          isForced={true}
+          onPasswordChanged={handlePasswordChanged}
+        />
+      </div>
+    );
+  }
+
   if (loading) {
     return <div className="loading">Loading...</div>;
   }
@@ -384,11 +471,15 @@ export default function App() {
               {closeMonthStatus.priorMonthClosed ? 'Resave Prior Month' : 'Save Prior Month'}
             </button>
           )}
-          <button className="import-btn" onClick={() => setImportOpen(true)}>
-            Import CSV
-          </button>
           <button className="settings-btn" onClick={() => setSettingsOpen(true)}>
             Settings
+          </button>
+          <div className="user-info">
+            <span className="user-email">{user?.email}</span>
+            <span className={`user-role ${isAdmin ? 'admin' : ''}`}>{user?.role}</span>
+          </div>
+          <button className="logout-btn" onClick={handleLogout}>
+            Logout
           </button>
         </div>
       </header>
@@ -431,6 +522,11 @@ export default function App() {
         onCreateListItem={handleCreateListItem}
         onUpdateListItem={handleUpdateListItem}
         onDeleteListItem={handleDeleteListItem}
+        isAdmin={isAdmin}
+        deals={deals}
+        onCreateDeal={api.createDeal}
+        onCreateArchivedDeal={api.createArchivedDeal}
+        onReloadData={loadData}
       />
       <ConfirmModal
         isOpen={deleteConfirm.open}
@@ -438,21 +534,6 @@ export default function App() {
         message={`Are you sure you want to delete "${deleteConfirm.dealName}"?`}
         onConfirm={handleConfirmDeleteDeal}
         onCancel={handleCancelDeleteDeal}
-      />
-      <ImportModal
-        isOpen={importOpen}
-        onClose={() => setImportOpen(false)}
-        stages={stages}
-        sources={sources}
-        partners={partners}
-        platforms={platforms}
-        products={products}
-        deals={deals}
-        onCreateStage={handleCreateStage}
-        onCreateListItem={handleCreateListItem}
-        onCreateDeal={api.createDeal}
-        onCreateArchivedDeal={api.createArchivedDeal}
-        onReloadData={loadData}
       />
       <WonConfirmModal
         isOpen={wonConfirm.open}

@@ -2,6 +2,8 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const { initDb, queries } = require('./db');
+const { verifyToken } = require('./auth');
+const authRoutes = require('./authRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -141,9 +143,12 @@ function scheduleAutoClose() {
 
 // Initialize database and start server
 initDb().then(() => {
-  // Load routes after DB is initialized
+  // Mount auth routes (public - no token required for login/setup)
+  app.use('/api/auth', authRoutes);
+
+  // Load protected routes after DB is initialized
   const routes = require('./routes');
-  app.use('/api', routes);
+  app.use('/api', verifyToken, routes);
 
   // Serve index.html for all other routes in production (client-side routing)
   if (process.env.NODE_ENV === 'production') {

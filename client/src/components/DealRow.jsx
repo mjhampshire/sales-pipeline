@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import EditableCell from './EditableCell';
 import DropdownCell from './DropdownCell';
 
@@ -7,6 +7,17 @@ const STATUS_OPTIONS = [
   { id: 'active', value: 'Active' },
   { id: 'keep_warm', value: 'Keep Warm' },
   { id: 'lost', value: 'Lost' }
+];
+
+const ROW_COLORS = [
+  { id: null, value: 'None', color: null },
+  { id: 'blue', value: 'Blue', color: '#e3f2fd' },
+  { id: 'yellow', value: 'Yellow', color: '#fff9c4' },
+  { id: 'orange', value: 'Orange', color: '#ffe0b2' },
+  { id: 'purple', value: 'Purple', color: '#e1bee7' },
+  { id: 'cyan', value: 'Cyan', color: '#b2ebf2' },
+  { id: 'pink', value: 'Pink', color: '#f8bbd9' },
+  { id: 'grey', value: 'Grey', color: '#e0e0e0' }
 ];
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -37,9 +48,33 @@ function formatCurrency(value) {
 
 export default function DealRow({ deal, stages, sources, partners, platforms, products, onUpdate, onDelete }) {
   const cellRefs = useRef([]);
+  const colorPickerRef = useRef(null);
+  const [showColorPicker, setShowColorPicker] = useState(false);
+
+  // Close color picker when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (colorPickerRef.current && !colorPickerRef.current.contains(e.target)) {
+        setShowColorPicker(false);
+      }
+    };
+    if (showColorPicker) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showColorPicker]);
 
   const handleChange = (field, value) => {
     onUpdate(deal.id, { [field]: value });
+  };
+
+  const handleTogglePriority = () => {
+    onUpdate(deal.id, { is_priority: deal.is_priority ? 0 : 1 });
+  };
+
+  const handleColorChange = (colorId) => {
+    onUpdate(deal.id, { row_color: colorId });
+    setShowColorPicker(false);
   };
 
   const handleCloseDateChange = (value) => {
@@ -69,7 +104,17 @@ export default function DealRow({ deal, stages, sources, partners, platforms, pr
     ? formatCurrency(deal.deal_value * deal.deal_stage_probability / 100)
     : '-';
 
-  const statusClass = `status-${deal.status || 'active'}`;
+  // Only apply status colors for won/lost
+  const isWonOrLost = deal.status === 'won' || deal.status === 'lost';
+  const statusClass = isWonOrLost ? `status-${deal.status}` : '';
+
+  // Get background color from row_color (only if not won/lost)
+  const rowColor = !isWonOrLost && deal.row_color
+    ? ROW_COLORS.find(c => c.id === deal.row_color)?.color
+    : null;
+
+  // Priority styling
+  const isPriority = deal.is_priority === 1;
 
   // Focus helpers for tab navigation
   const focusCell = (index) => {
@@ -88,7 +133,46 @@ export default function DealRow({ deal, stages, sources, partners, platforms, pr
   });
 
   return (
-    <tr className={statusClass}>
+    <tr
+      className={`${statusClass} ${isPriority ? 'priority-row' : ''}`}
+      style={rowColor ? { backgroundColor: rowColor } : undefined}
+    >
+      <td className="flag-cell">
+        <button
+          className={`flag-btn ${isPriority ? 'flagged' : ''}`}
+          onClick={handleTogglePriority}
+          title={isPriority ? 'Remove priority' : 'Mark as priority'}
+        >
+          &#9873;
+        </button>
+      </td>
+      <td className="color-cell">
+        <div className="color-picker-container" ref={colorPickerRef}>
+          <button
+            className="color-btn"
+            onClick={() => setShowColorPicker(!showColorPicker)}
+            style={{ backgroundColor: rowColor || '#fff' }}
+            title="Set row color"
+          >
+            &#9632;
+          </button>
+          {showColorPicker && (
+            <div className="color-picker-dropdown">
+              {ROW_COLORS.map(c => (
+                <button
+                  key={c.id || 'none'}
+                  className={`color-option ${deal.row_color === c.id ? 'selected' : ''}`}
+                  style={{ backgroundColor: c.color || '#fff' }}
+                  onClick={() => handleColorChange(c.id)}
+                  title={c.value}
+                >
+                  {c.id === null && '×'}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </td>
       <td ref={el => cellRefs.current[0] = el}>
         <EditableCell
           value={deal.deal_name}

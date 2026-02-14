@@ -33,7 +33,9 @@ router.post('/deals', (req, res) => {
       close_year: req.body.close_year || null,
       deal_value: req.body.deal_value || null,
       notes: req.body.notes || null,
-      next_step_date: req.body.next_step_date || null
+      next_step_date: req.body.next_step_date || null,
+      is_priority: req.body.is_priority || 0,
+      row_color: req.body.row_color || null
     };
     const result = queries.createDeal(data);
     const deal = queries.getDealById(result.lastInsertRowid);
@@ -66,7 +68,9 @@ router.put('/deals/:id', (req, res) => {
       close_year: req.body.close_year ?? existing.close_year,
       deal_value: req.body.deal_value ?? existing.deal_value,
       notes: req.body.notes ?? existing.notes,
-      next_step_date: req.body.next_step_date ?? existing.next_step_date
+      next_step_date: req.body.next_step_date ?? existing.next_step_date,
+      is_priority: req.body.is_priority ?? existing.is_priority,
+      row_color: req.body.row_color !== undefined ? req.body.row_color : existing.row_color
     };
 
     queries.updateDeal(data);

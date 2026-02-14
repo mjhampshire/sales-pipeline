@@ -1,4 +1,6 @@
 import { useState, useRef } from 'react';
+import UserManagement from './UserManagement';
+import ImportModal from './ImportModal';
 
 function EditableListItem({ item, onUpdate, onDelete, showProbability = false }) {
   const [localName, setLocalName] = useState(item.name || item.value || '');
@@ -72,11 +74,17 @@ export default function SettingsModal({
   onDeleteStage,
   onCreateListItem,
   onUpdateListItem,
-  onDeleteListItem
+  onDeleteListItem,
+  isAdmin,
+  deals,
+  onCreateDeal,
+  onCreateArchivedDeal,
+  onReloadData
 }) {
   const [activeTab, setActiveTab] = useState('stages');
   const [newItemValue, setNewItemValue] = useState('');
   const [newStageProbability, setNewStageProbability] = useState(50);
+  const [showImport, setShowImport] = useState(false);
 
   if (!isOpen) return null;
 
@@ -85,7 +93,11 @@ export default function SettingsModal({
     { id: 'source', label: 'Sources' },
     { id: 'partner', label: 'Partners' },
     { id: 'platform', label: 'Platforms' },
-    { id: 'product', label: 'Products' }
+    { id: 'product', label: 'Products' },
+    ...(isAdmin ? [
+      { id: 'users', label: 'Users' },
+      { id: 'import', label: 'Import CSV' }
+    ] : [])
   ];
 
   const handleAddStage = () => {
@@ -193,8 +205,36 @@ export default function SettingsModal({
           {activeTab === 'partner' && renderListTab('partner', partners)}
           {activeTab === 'platform' && renderListTab('platform', platforms)}
           {activeTab === 'product' && renderListTab('product', products)}
+          {activeTab === 'users' && isAdmin && <UserManagement />}
+          {activeTab === 'import' && isAdmin && (
+            <div className="import-tab-content">
+              <p style={{ marginBottom: '16px', color: '#666' }}>
+                Import deals from a CSV file. You can import active pipeline deals or historical won/lost deals.
+              </p>
+              <button className="btn-primary" onClick={() => setShowImport(true)}>
+                Open Import Tool
+              </button>
+            </div>
+          )}
         </div>
       </div>
+      {showImport && (
+        <ImportModal
+          isOpen={showImport}
+          onClose={() => setShowImport(false)}
+          stages={stages}
+          sources={sources}
+          partners={partners}
+          platforms={platforms}
+          products={products}
+          deals={deals}
+          onCreateStage={onCreateStage}
+          onCreateListItem={onCreateListItem}
+          onCreateDeal={onCreateDeal}
+          onCreateArchivedDeal={onCreateArchivedDeal}
+          onReloadData={onReloadData}
+        />
+      )}
     </div>
   );
 }
