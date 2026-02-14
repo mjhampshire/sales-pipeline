@@ -35,16 +35,20 @@ const CHART_COLORS = {
 };
 
 export default function ForecastSummary({ deals, stages }) {
-  // Filter deals with valid values and calculate weighted forecast
-  // Only include deals with 'active' status
-  const validDeals = useMemo(() => {
+  // All deals with valid values (for total forecast)
+  const allValidDeals = useMemo(() => {
     return deals
-      .filter(d => d.status === 'active' && d.deal_value != null && d.deal_stage_probability != null)
+      .filter(d => d.deal_value != null && d.deal_stage_probability != null)
       .map(d => ({
         ...d,
         weighted_forecast: d.deal_value * (d.deal_stage_probability / 100)
       }));
   }, [deals]);
+
+  // Only active status deals with valid values (for active forecast and charts)
+  const validDeals = useMemo(() => {
+    return allValidDeals.filter(d => d.status === 'active');
+  }, [allValidDeals]);
 
   // By Month - Future months only, sorted chronologically
   const byMonth = useMemo(() => {
@@ -216,7 +220,8 @@ export default function ForecastSummary({ deals, stages }) {
     </div>
   );
 
-  const totalForecast = validDeals.reduce((sum, d) => sum + d.weighted_forecast, 0);
+  const totalForecast = allValidDeals.reduce((sum, d) => sum + d.weighted_forecast, 0);
+  const activeForecast = validDeals.reduce((sum, d) => sum + d.weighted_forecast, 0);
   // Count all deals with 'active' status (not just those with values)
   const totalActiveDeals = deals.filter(d => d.status === 'active').length;
 
@@ -226,6 +231,10 @@ export default function ForecastSummary({ deals, stages }) {
         <div className="forecast-stat">
           <span className="stat-label">Total Weighted Forecast</span>
           <span className="stat-value">{formatTooltipCurrency(totalForecast)}</span>
+        </div>
+        <div className="forecast-stat">
+          <span className="stat-label">Active Weighted Forecast</span>
+          <span className="stat-value">{formatTooltipCurrency(activeForecast)}</span>
         </div>
         <div className="forecast-stat">
           <span className="stat-label">Active Deals</span>
