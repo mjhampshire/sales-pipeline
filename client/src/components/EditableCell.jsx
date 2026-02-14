@@ -1,8 +1,20 @@
 import { useState, useRef, useEffect } from 'react';
 
+// Format date value to YYYY-MM-DD for display and input
+function formatDateValue(val) {
+  if (!val) return '';
+  // Handle ISO date strings with time component
+  if (typeof val === 'string' && val.includes('T')) {
+    return val.split('T')[0];
+  }
+  return val;
+}
+
 export default function EditableCell({ value, onChange, type = 'text', placeholder = '', onTab, onShiftTab }) {
+  // Format dates to strip time component
+  const displayValue = type === 'date' ? formatDateValue(value) : value;
   const [editing, setEditing] = useState(false);
-  const [localValue, setLocalValue] = useState(value ?? '');
+  const [localValue, setLocalValue] = useState(displayValue ?? '');
   const inputRef = useRef(null);
   const cellRef = useRef(null);
   const mountedRef = useRef(false);
@@ -13,8 +25,8 @@ export default function EditableCell({ value, onChange, type = 'text', placehold
   }, []);
 
   useEffect(() => {
-    setLocalValue(value ?? '');
-  }, [value]);
+    setLocalValue(displayValue ?? '');
+  }, [displayValue]);
 
   useEffect(() => {
     if (editing && inputRef.current) {
@@ -25,7 +37,7 @@ export default function EditableCell({ value, onChange, type = 'text', placehold
 
   const saveAndClose = () => {
     setEditing(false);
-    if (localValue !== (value ?? '')) {
+    if (localValue !== (displayValue ?? '')) {
       onChange(localValue || null);
     }
   };
@@ -42,7 +54,7 @@ export default function EditableCell({ value, onChange, type = 'text', placehold
     if (e.key === 'Enter') {
       saveAndClose();
     } else if (e.key === 'Escape') {
-      setLocalValue(value ?? '');
+      setLocalValue(displayValue ?? '');
       setEditing(false);
     } else if (e.key === 'Tab') {
       e.preventDefault();
@@ -99,7 +111,7 @@ export default function EditableCell({ value, onChange, type = 'text', placehold
         }
       }}
     >
-      {value || <span className="placeholder">{placeholder}</span>}
+      {displayValue || <span className="placeholder">{placeholder}</span>}
     </div>
   );
 }

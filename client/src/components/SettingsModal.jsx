@@ -123,9 +123,12 @@ export default function SettingsModal({
     setNewItemValue('');
   };
 
+  // Sort stages by probability ascending
+  const sortedStages = [...stages].sort((a, b) => (a.probability || 0) - (b.probability || 0));
+
   const renderStagesTab = () => (
     <div className="settings-list">
-      {stages.map(stage => (
+      {sortedStages.map(stage => (
         <EditableListItem
           key={stage.id}
           item={stage}

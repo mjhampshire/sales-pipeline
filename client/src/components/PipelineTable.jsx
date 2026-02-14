@@ -74,6 +74,9 @@ export default function PipelineTable({
     document.body.style.userSelect = '';
   };
 
+  // Sort stages by probability ascending for dropdowns
+  const sortedStages = [...stages].sort((a, b) => (a.probability || 0) - (b.probability || 0));
+
   const handleHeaderClick = (col) => {
     if (col.sortable === false) return;
     onSort(col.key);
@@ -113,7 +116,7 @@ export default function PipelineTable({
             <DealRow
               key={deal.id}
               deal={deal}
-              stages={stages}
+              stages={sortedStages}
               sources={sources}
               partners={partners}
               platforms={platforms}
