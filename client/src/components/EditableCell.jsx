@@ -99,6 +99,15 @@ export default function EditableCell({ value, onChange, type = 'text', placehold
     }
   };
 
+  const handleChange = (e) => {
+    const newValue = e.target.value;
+    setLocalValue(newValue);
+    // For date inputs, save immediately on change (handles clear button)
+    if (type === 'date') {
+      onChange(newValue || null);
+    }
+  };
+
   if (editing) {
     return (
       <div ref={cellRef}>
@@ -106,7 +115,7 @@ export default function EditableCell({ value, onChange, type = 'text', placehold
           ref={inputRef}
           type={type}
           value={localValue}
-          onChange={(e) => setLocalValue(e.target.value)}
+          onChange={handleChange}
           onBlur={handleBlur}
           onKeyDown={handleKeyDown}
           className="cell-input"
