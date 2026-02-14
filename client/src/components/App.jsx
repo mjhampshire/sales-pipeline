@@ -461,7 +461,7 @@ export default function App() {
               className={`nav-tab ${currentView === 'leads' ? 'active' : ''}`}
               onClick={() => setCurrentView('leads')}
             >
-              Leads
+              Inbound Leads
             </button>
           </nav>
           {closeMonthStatus && (
