@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 
-// Format date value to YYYY-MM-DD for display and input
-function formatDateValue(val) {
+// Format date value to YYYY-MM-DD for input
+function formatDateForInput(val) {
   if (!val) return '';
   // Handle ISO date strings with time component
   if (typeof val === 'string' && val.includes('T')) {
@@ -10,11 +10,28 @@ function formatDateValue(val) {
   return val;
 }
 
+// Format date value to dd/mm/yyyy for display
+function formatDateForDisplay(val) {
+  if (!val) return '';
+  let dateStr = val;
+  // Handle ISO date strings with time component
+  if (typeof dateStr === 'string' && dateStr.includes('T')) {
+    dateStr = dateStr.split('T')[0];
+  }
+  // Convert YYYY-MM-DD to dd/mm/yyyy
+  const parts = dateStr.split('-');
+  if (parts.length === 3) {
+    return `${parts[2]}/${parts[1]}/${parts[0]}`;
+  }
+  return dateStr;
+}
+
 export default function EditableCell({ value, onChange, type = 'text', placeholder = '', onTab, onShiftTab }) {
-  // Format dates to strip time component
-  const displayValue = type === 'date' ? formatDateValue(value) : value;
+  // Format dates appropriately
+  const inputValue = type === 'date' ? formatDateForInput(value) : value;
+  const displayValue = type === 'date' ? formatDateForDisplay(value) : value;
   const [editing, setEditing] = useState(false);
-  const [localValue, setLocalValue] = useState(displayValue ?? '');
+  const [localValue, setLocalValue] = useState(inputValue ?? '');
   const inputRef = useRef(null);
   const cellRef = useRef(null);
   const mountedRef = useRef(false);
@@ -25,8 +42,8 @@ export default function EditableCell({ value, onChange, type = 'text', placehold
   }, []);
 
   useEffect(() => {
-    setLocalValue(displayValue ?? '');
-  }, [displayValue]);
+    setLocalValue(inputValue ?? '');
+  }, [inputValue]);
 
   useEffect(() => {
     if (editing && inputRef.current) {
@@ -37,7 +54,7 @@ export default function EditableCell({ value, onChange, type = 'text', placehold
 
   const saveAndClose = () => {
     setEditing(false);
-    if (localValue !== (displayValue ?? '')) {
+    if (localValue !== (inputValue ?? '')) {
       onChange(localValue || null);
     }
   };
@@ -54,7 +71,7 @@ export default function EditableCell({ value, onChange, type = 'text', placehold
     if (e.key === 'Enter') {
       saveAndClose();
     } else if (e.key === 'Escape') {
-      setLocalValue(displayValue ?? '');
+      setLocalValue(inputValue ?? '');
       setEditing(false);
     } else if (e.key === 'Tab') {
       e.preventDefault();
