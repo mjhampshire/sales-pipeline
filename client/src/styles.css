@@ -526,6 +526,158 @@ body {
   overflow-y: auto;
 }
 
+/* Notes Modal */
+.notes-modal {
+  max-width: 600px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.notes-modal .modal-body {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.notes-add-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 20px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #eee;
+}
+
+.notes-textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 60px;
+}
+
+.notes-textarea:focus {
+  outline: none;
+  border-color: #2196f3;
+}
+
+.notes-history h3 {
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.notes-loading,
+.notes-empty {
+  color: #999;
+  font-style: italic;
+  padding: 20px 0;
+  text-align: center;
+}
+
+.notes-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.note-item {
+  background: #f9f9f9;
+  border-radius: 6px;
+  padding: 12px;
+}
+
+.note-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.note-date {
+  font-size: 12px;
+  color: #666;
+  font-weight: 500;
+}
+
+.note-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.note-action-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px 8px;
+  font-size: 14px;
+  color: #666;
+  border-radius: 4px;
+}
+
+.note-action-btn:hover {
+  background: #e0e0e0;
+  color: #333;
+}
+
+.note-action-btn.delete:hover {
+  background: #ffebee;
+  color: #f44336;
+}
+
+.note-text {
+  font-size: 14px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.note-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.note-edit-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.notes-cell {
+  cursor: pointer;
+}
+
+.notes-cell:hover {
+  background: #f0f0f0;
+}
+
+.notes-cell .note-preview {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.notes-cell .note-date-badge {
+  font-size: 10px;
+  color: #666;
+  background: #e0e0e0;
+  padding: 2px 6px;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+
+.notes-cell .note-text-preview {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* Settings List */
 .settings-list {
   display: flex;

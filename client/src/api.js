@@ -148,6 +148,41 @@ export async function deleteDeal(id) {
   return handleResponse(res);
 }
 
+// ============ DEAL NOTES ============
+
+export async function getDealNotes(dealId) {
+  const res = await fetch(`${API_BASE}/deals/${dealId}/notes`, {
+    headers: getAuthHeaders()
+  });
+  return handleResponse(res);
+}
+
+export async function createDealNote(dealId, noteText, noteDate) {
+  const res = await fetch(`${API_BASE}/deals/${dealId}/notes`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ note_text: noteText, note_date: noteDate })
+  });
+  return handleResponse(res);
+}
+
+export async function updateDealNote(noteId, noteText) {
+  const res = await fetch(`${API_BASE}/notes/${noteId}`, {
+    method: 'PUT',
+    headers: authHeaders(),
+    body: JSON.stringify({ note_text: noteText })
+  });
+  return handleResponse(res);
+}
+
+export async function deleteDealNote(noteId) {
+  const res = await fetch(`${API_BASE}/notes/${noteId}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders()
+  });
+  return handleResponse(res);
+}
+
 // ============ STAGES ============
 
 export async function getStages() {

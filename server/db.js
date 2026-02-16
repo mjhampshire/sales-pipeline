@@ -140,6 +140,17 @@ async function initDb() {
       )
     `);
 
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS deal_notes (
+        id SERIAL PRIMARY KEY,
+        deal_id INTEGER REFERENCES deals(id) ON DELETE CASCADE,
+        note_text TEXT NOT NULL,
+        note_date DATE NOT NULL DEFAULT CURRENT_DATE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
     // Seed default data if empty
     await seedIfEmpty(client);
 
@@ -642,6 +653,43 @@ const queries = {
 
   deleteUser: async (id) => {
     await pool.query('DELETE FROM users WHERE id = $1', [id]);
+  },
+
+  // Deal Notes
+  getNotesByDealId: async (dealId) => {
+    const result = await pool.query(
+      'SELECT * FROM deal_notes WHERE deal_id = $1 ORDER BY note_date DESC, created_at DESC',
+      [dealId]
+    );
+    return result.rows;
+  },
+
+  getLatestNoteByDealId: async (dealId) => {
+    const result = await pool.query(
+      'SELECT * FROM deal_notes WHERE deal_id = $1 ORDER BY note_date DESC, created_at DESC LIMIT 1',
+      [dealId]
+    );
+    return result.rows[0] || null;
+  },
+
+  createNote: async (dealId, noteText, noteDate) => {
+    const result = await pool.query(
+      'INSERT INTO deal_notes (deal_id, note_text, note_date) VALUES ($1, $2, $3) RETURNING *',
+      [dealId, noteText, noteDate || new Date().toISOString().split('T')[0]]
+    );
+    return result.rows[0];
+  },
+
+  updateNote: async (noteId, noteText) => {
+    const result = await pool.query(
+      'UPDATE deal_notes SET note_text = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING *',
+      [noteText, noteId]
+    );
+    return result.rows[0];
+  },
+
+  deleteNote: async (noteId) => {
+    await pool.query('DELETE FROM deal_notes WHERE id = $1', [noteId]);
   }
 };
 

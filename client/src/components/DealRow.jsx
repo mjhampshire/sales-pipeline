@@ -1,6 +1,8 @@
 import { useRef, useState, useEffect } from 'react';
 import EditableCell from './EditableCell';
 import DropdownCell from './DropdownCell';
+import NotesModal from './NotesModal';
+import * as api from '../api';
 
 const STATUS_OPTIONS = [
   { id: 'won', value: 'Won' },
@@ -49,10 +51,36 @@ function formatCurrency(value) {
   return '$' + Math.round(value).toLocaleString('en-US');
 }
 
+// Format date as dd/mm/yy
+function formatNoteDate(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = String(d.getFullYear()).slice(-2);
+  return `${day}/${month}/${year}`;
+}
+
 export default function DealRow({ deal, stages, sources, partners, platforms, products, onUpdate, onDelete, notesWidth }) {
   const cellRefs = useRef([]);
   const colorPickerRef = useRef(null);
   const [showColorPicker, setShowColorPicker] = useState(false);
+  const [showNotesModal, setShowNotesModal] = useState(false);
+  const [latestNote, setLatestNote] = useState(null);
+
+  // Load latest note on mount and when deal changes
+  useEffect(() => {
+    loadLatestNote();
+  }, [deal.id]);
+
+  const loadLatestNote = async () => {
+    try {
+      const notes = await api.getDealNotes(deal.id);
+      setLatestNote(notes.length > 0 ? notes[0] : null);
+    } catch (err) {
+      console.error('Failed to load notes:', err);
+    }
+  };
 
   // Close color picker when clicking outside
   useEffect(() => {
@@ -315,13 +343,20 @@ export default function DealRow({ deal, stages, sources, partners, platforms, pr
         />
       </td>
       <td className="forecast-cell">{weightedForecast}</td>
-      <td ref={el => cellRefs.current[11] = el} style={{ width: notesWidth, minWidth: notesWidth, maxWidth: notesWidth }}>
-        <EditableCell
-          value={deal.notes}
-          onChange={(v) => handleChange('notes', v)}
-          placeholder="Notes"
-          {...makeTabHandlers(11)}
-        />
+      <td
+        ref={el => cellRefs.current[11] = el}
+        style={{ width: notesWidth, minWidth: notesWidth, maxWidth: notesWidth }}
+        className="notes-cell"
+        onClick={() => setShowNotesModal(true)}
+      >
+        {latestNote ? (
+          <div className="note-preview">
+            <span className="note-date-badge">{formatNoteDate(latestNote.note_date)}</span>
+            <span className="note-text-preview">{latestNote.note_text}</span>
+          </div>
+        ) : (
+          <span className="placeholder">Click to add notes</span>
+        )}
       </td>
       <td ref={el => cellRefs.current[12] = el}>
         <EditableCell
@@ -334,6 +369,15 @@ export default function DealRow({ deal, stages, sources, partners, platforms, pr
       <td>
         <button className="delete-btn" onClick={() => onDelete(deal.id)}>×</button>
       </td>
+      {showNotesModal && (
+        <NotesModal
+          isOpen={showNotesModal}
+          onClose={() => setShowNotesModal(false)}
+          dealId={deal.id}
+          dealName={deal.deal_name}
+          onNotesUpdated={loadLatestNote}
+        />
+      )}
     </tr>
   );
 }
