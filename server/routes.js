@@ -149,11 +149,14 @@ router.post('/deals/:id/notes', async (req, res) => {
 // Update a note
 router.put('/notes/:id', async (req, res) => {
   try {
-    const { note_text } = req.body;
+    const { note_text, note_date } = req.body;
     if (!note_text || !note_text.trim()) {
       return res.status(400).json({ error: 'Note text is required' });
     }
-    const note = await queries.updateNote(req.params.id, note_text.trim());
+    if (!note_date) {
+      return res.status(400).json({ error: 'Note date is required' });
+    }
+    const note = await queries.updateNote(req.params.id, note_text.trim(), note_date);
     if (!note) {
       return res.status(404).json({ error: 'Note not found' });
     }

@@ -24,6 +24,7 @@ export default function NotesModal({ isOpen, onClose, dealId, dealName, onNotesU
   const [newNoteText, setNewNoteText] = useState('');
   const [editingNoteId, setEditingNoteId] = useState(null);
   const [editingText, setEditingText] = useState('');
+  const [editingDate, setEditingDate] = useState('');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -65,21 +66,24 @@ export default function NotesModal({ isOpen, onClose, dealId, dealName, onNotesU
   const handleStartEdit = (note) => {
     setEditingNoteId(note.id);
     setEditingText(note.note_text);
+    setEditingDate(formatDateForInput(note.note_date));
   };
 
   const handleCancelEdit = () => {
     setEditingNoteId(null);
     setEditingText('');
+    setEditingDate('');
   };
 
   const handleSaveEdit = async () => {
-    if (!editingText.trim()) return;
+    if (!editingText.trim() || !editingDate) return;
 
     setSaving(true);
     try {
-      await api.updateDealNote(editingNoteId, editingText.trim());
+      await api.updateDealNote(editingNoteId, editingText.trim(), editingDate);
       setEditingNoteId(null);
       setEditingText('');
+      setEditingDate('');
       await loadNotes();
       if (onNotesUpdated) onNotesUpdated();
     } catch (err) {
@@ -176,6 +180,15 @@ export default function NotesModal({ isOpen, onClose, dealId, dealName, onNotesU
                     </div>
                     {editingNoteId === note.id ? (
                       <div className="note-edit">
+                        <div className="note-edit-date">
+                          <label>Date:</label>
+                          <input
+                            type="date"
+                            value={editingDate}
+                            onChange={(e) => setEditingDate(e.target.value)}
+                            className="note-date-input"
+                          />
+                        </div>
                         <textarea
                           value={editingText}
                           onChange={(e) => setEditingText(e.target.value)}
@@ -186,7 +199,7 @@ export default function NotesModal({ isOpen, onClose, dealId, dealName, onNotesU
                           <button
                             className="btn-primary"
                             onClick={handleSaveEdit}
-                            disabled={saving}
+                            disabled={saving || !editingDate}
                           >
                             Save
                           </button>

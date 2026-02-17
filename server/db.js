@@ -680,10 +680,10 @@ const queries = {
     return result.rows[0];
   },
 
-  updateNote: async (noteId, noteText) => {
+  updateNote: async (noteId, noteText, noteDate) => {
     const result = await pool.query(
-      'UPDATE deal_notes SET note_text = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING *',
-      [noteText, noteId]
+      'UPDATE deal_notes SET note_text = $1, note_date = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3 RETURNING *',
+      [noteText, noteDate, noteId]
     );
     return result.rows[0];
   },

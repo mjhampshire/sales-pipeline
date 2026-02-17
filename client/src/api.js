@@ -166,11 +166,11 @@ export async function createDealNote(dealId, noteText, noteDate) {
   return handleResponse(res);
 }
 
-export async function updateDealNote(noteId, noteText) {
+export async function updateDealNote(noteId, noteText, noteDate) {
   const res = await fetch(`${API_BASE}/notes/${noteId}`, {
     method: 'PUT',
     headers: authHeaders(),
-    body: JSON.stringify({ note_text: noteText })
+    body: JSON.stringify({ note_text: noteText, note_date: noteDate })
   });
   return handleResponse(res);
 }

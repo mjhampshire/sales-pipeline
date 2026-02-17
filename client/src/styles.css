@@ -643,6 +643,25 @@ body {
   gap: 8px;
 }
 
+.note-edit-date {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.note-edit-date label {
+  font-weight: 500;
+  color: #555;
+}
+
+.note-date-input {
+  padding: 4px 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
 .note-edit-actions {
   display: flex;
   gap: 8px;
