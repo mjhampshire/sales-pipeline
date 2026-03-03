@@ -148,6 +148,42 @@ initDb().then(() => {
   // Mount auth routes (public - no token required for login/setup)
   app.use('/api/auth', authRoutes);
 
+  // Public webhook endpoint for inbound leads (validates secret)
+  app.post('/api/webhook/leads', async (req, res) => {
+    const webhookSecret = process.env.WEBHOOK_SECRET;
+    const providedSecret = req.headers['x-webhook-secret'];
+
+    if (!webhookSecret) {
+      console.error('WEBHOOK_SECRET not configured');
+      return res.status(500).json({ error: 'Webhook not configured' });
+    }
+
+    if (!providedSecret || providedSecret !== webhookSecret) {
+      return res.status(401).json({ error: 'Invalid webhook secret' });
+    }
+
+    try {
+      const data = {
+        firstname: req.body.firstname || req.body.firstName || null,
+        lastname: req.body.lastname || req.body.lastName || null,
+        email: req.body.email || null,
+        mobile: req.body.mobile || req.body.phone || null,
+        company: req.body.company || null,
+        message: req.body.message || null,
+        source: req.body.source || 'website',
+        received_date: req.body.received_date || new Date().toISOString().split('T')[0]
+      };
+
+      const result = await queries.createLead(data);
+      const lead = await queries.getLeadById(result.lastInsertRowid);
+      console.log(`New lead received via webhook: ${lead.company || lead.email || 'Unknown'}`);
+      res.status(201).json(lead);
+    } catch (err) {
+      console.error('Webhook lead creation failed:', err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // Load protected routes after DB is initialized
   const routes = require('./routes');
   app.use('/api', verifyToken, routes);
