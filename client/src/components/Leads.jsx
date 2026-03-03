@@ -21,7 +21,7 @@ const EMPTY_LEAD = {
   source: ''
 };
 
-export default function Leads({ onLeadConverted }) {
+export default function Leads({ onLeadConverted, onLeadsChanged }) {
   const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(true);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
@@ -53,6 +53,7 @@ export default function Leads({ onLeadConverted }) {
       await api.deleteLead(id);
       setDeleteConfirm(null);
       loadLeads();
+      if (onLeadsChanged) onLeadsChanged();
     } catch (err) {
       console.error('Failed to delete lead:', err);
     }
@@ -85,6 +86,7 @@ export default function Leads({ onLeadConverted }) {
       setDealNameError('');
       loadLeads();
       if (onLeadConverted) onLeadConverted();
+      if (onLeadsChanged) onLeadsChanged();
     } catch (err) {
       console.error('Failed to convert lead:', err);
     } finally {
@@ -116,6 +118,7 @@ export default function Leads({ onLeadConverted }) {
     try {
       await api.updateLeadStatus(id, 'not_converted');
       loadLeads();
+      if (onLeadsChanged) onLeadsChanged();
     } catch (err) {
       console.error('Failed to update lead status:', err);
     }

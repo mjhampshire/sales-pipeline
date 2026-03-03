@@ -37,6 +37,7 @@ export default function App() {
   const [lostConfirm, setLostConfirm] = useState({ open: false, deal: null });
   const [closeMonthStatus, setCloseMonthStatus] = useState(null);
   const [closeMonthModalOpen, setCloseMonthModalOpen] = useState(false);
+  const [newLeadsCount, setNewLeadsCount] = useState(0);
 
   const isAdmin = user?.role === 'admin';
 
@@ -68,9 +69,14 @@ export default function App() {
     if (isAuthenticated && !showChangePassword) {
       loadData();
       loadCloseMonthStatus();
-      // Poll close month status every minute
-      const interval = setInterval(loadCloseMonthStatus, 60000);
-      return () => clearInterval(interval);
+      loadNewLeadsCount();
+      // Poll close month status every minute, new leads every 30 seconds
+      const closeMonthInterval = setInterval(loadCloseMonthStatus, 60000);
+      const leadsInterval = setInterval(loadNewLeadsCount, 30000);
+      return () => {
+        clearInterval(closeMonthInterval);
+        clearInterval(leadsInterval);
+      };
     }
   }, [isAuthenticated, showChangePassword]);
 
@@ -173,6 +179,16 @@ export default function App() {
       setCloseMonthStatus(status);
     } catch (err) {
       console.error('Failed to load close month status:', err);
+    }
+  };
+
+  const loadNewLeadsCount = async () => {
+    try {
+      const leads = await api.getLeads();
+      const newCount = leads.filter(lead => lead.status === 'new').length;
+      setNewLeadsCount(newCount);
+    } catch (err) {
+      console.error('Failed to load leads count:', err);
     }
   };
 
@@ -458,10 +474,10 @@ export default function App() {
               Lost Deals
             </button>
             <button
-              className={`nav-tab ${currentView === 'leads' ? 'active' : ''}`}
+              className={`nav-tab ${currentView === 'leads' ? 'active' : ''} ${newLeadsCount > 0 ? 'flashing' : ''}`}
               onClick={() => setCurrentView('leads')}
             >
-              Inbound Leads
+              Inbound Leads {newLeadsCount > 0 && `(${newLeadsCount})`}
             </button>
           </nav>
           {closeMonthStatus && (
@@ -507,7 +523,7 @@ export default function App() {
         {currentView === 'snapshot' && <MonthlySnapshot />}
         {currentView === 'won' && <WonDeals />}
         {currentView === 'lost' && <LostDeals />}
-        {currentView === 'leads' && <Leads onLeadConverted={loadDeals} />}
+        {currentView === 'leads' && <Leads onLeadConverted={loadDeals} onLeadsChanged={loadNewLeadsCount} />}
       </main>
       <SettingsModal
         isOpen={settingsOpen}

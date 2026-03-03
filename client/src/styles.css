@@ -813,6 +813,26 @@ body {
   box-shadow: 0 1px 3px rgba(0,0,0,0.1);
 }
 
+.nav-tab.flashing {
+  animation: nav-flash 1s infinite;
+  font-weight: 600;
+}
+
+.nav-tab.flashing.active {
+  animation: none;
+}
+
+@keyframes nav-flash {
+  0%, 100% {
+    background: #ff9800;
+    color: #fff;
+  }
+  50% {
+    background: #ff5722;
+    color: #fff;
+  }
+}
+
 /* Forecast Summary */
 .forecast-summary {
   padding: 24px;
